@@ -1,3 +1,5 @@
+// main.cpp file for testing one-dimensional examples of MPI programs for Aether
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,10 +33,8 @@ bool divide_list(int *array, int nProcs, int *owner_array) {
             owner_array[i * sub_size + j + 1] = i;
             j++;
         }
-        if (i == (nProcs - 1)) {
-            did_work = true;
-        }
     }
+
     return did_work;
 }
 
