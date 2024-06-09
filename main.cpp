@@ -6,12 +6,13 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <unistd.h>
 
 using namespace std;
 
 
 // creates an array filled with random numbers
-void genArray(int size, int range_start, int range_end, int seed) {
+map<int, int> genArray(int size, int range_start, int range_end, int seed) {
     // pair<location on the x-axis, value>
     map<int, int> line;
     int nProcs, iProc;
@@ -28,9 +29,11 @@ void genArray(int size, int range_start, int range_end, int seed) {
     // fills the line with random numbers
     // each processor only fills their part of the line
     // rand() % (upper - lower + 1) + lower
-    for (int i = iProc * subSize; i < i + subSize && i < size; ++i) {
+    for (int i = iProc * subSize; i < iProc * subSize + subSize && i < size; ++i) {
         line[i] = rand() % (range_end - range_start + 1) + range_start;
     }
+
+    return line;
 }
 
 // Broadcast the location of one line (smaller line) (MPI_broadcast). 
@@ -44,6 +47,7 @@ void genArray(int size, int range_start, int range_end, int seed) {
 
 // I NEED TO FIGURE OUT HOW TO STORE THE LINE. RIGHT NOW, THE MAP GETS DESTROYED AFTER genArray FINISHES
 int main() {
+
     int nProcs, iProc;
     bool did_work;
 
@@ -54,6 +58,16 @@ int main() {
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+
+    
+    map<int, int> line = genArray(size, 0, 100, 123);
+    if (iProc == 1) {
+        map<int, int>::iterator it = line.begin();
+        while (it != line.end()) {
+            cout << "x = " << it->first << ", value = " << it->second << endl;
+            ++it;
+        }
+    }
 
     MPI_Finalize();
     return 0;
