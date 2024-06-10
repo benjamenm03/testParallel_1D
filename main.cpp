@@ -20,6 +20,7 @@ map<int, int> genArray(int size, int range_start, int range_end, int seed) {
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
 
     // calculates what processor takes care of how much of the array
+    // to make more efficient, maybe split up the remainders to the processors so that it's more evenly distributed
     int subSize = size / nProcs;
     if (size % nProcs != 0) ++subSize;
 
@@ -54,7 +55,8 @@ void findLocations(vector<int> *array, map<int, int> *line) {
 // Go through locations and ask, is this point on my processor? 
 // If the point is on the processor, then fill in the rank of the processor onto the array. 
 // The indices of the array are associated with the location of the line. 
-// Do MPI_Allgather, take the max value, now every processor has a full array filled with 0, 1, 2, or 3, and there are no -1 left. 
+// Do MPI_Allgather, take the max value, now every processor has a full array filled with 0, 1, 2, or 3, and there are no -1 left.
+// // OR have a global array that can pass by reference and have all the processors fill in with????
 // Once you have the locations worked out, put a function on a processor that knows all of the data and try and get that data to all of the other processors
 
 
