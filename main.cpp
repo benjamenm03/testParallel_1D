@@ -7,9 +7,14 @@
 #include <iostream>
 
 // ************************* VERY MUCH INCOMPLETE CODE *************************
-
 // COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
 // RUN COMMAND: mpirun -np 4 ./main
+
+// NEEDS FIXING:
+// - Division of points among processors. Getting weird distribution behavior... I'm tired.
+// - Need to check if this is anything close to what we want or need... I'm tired.
+// - Need to implement actual custom testing scripts.
+// - Need to implement "meaningful" data exchange using message passing... it's 3 am.
 
 std::map<int, int> generate_points(int num_points, int range_start, int range_end, int seed) {
     std::map<int, int> points;
