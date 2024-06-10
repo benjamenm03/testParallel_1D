@@ -36,6 +36,19 @@ map<int, int> genArray(int size, int range_start, int range_end, int seed) {
     return line;
 }
 
+// fills an array with the processors rank for all the indices (correlating to the x-axis) 
+// that the processor handles
+void findLocations(vector<int> *array, map<int, int> *line) {
+    int iProc;
+    MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
+
+    map<int, int>::iterator it = line->begin();
+    while (it != line->end()) {
+        array->insert(array->begin() + it->first, iProc);
+        ++it;
+    }
+}
+
 // Broadcast the location of one line (smaller line) (MPI_broadcast). 
 // Then, create an array that is the same size. Array is filled with -1 on both processors. 
 // Go through locations and ask, is this point on my processor? 
@@ -54,20 +67,28 @@ int main() {
     // SET THE SIZE OF THE LINE
     // LINE WILL GO FROM x = 0 TO x = size - 1
     int size = 10;
+    vector<int> locations;
+    locations.resize(size);
 
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
 
-    
+    // prints out the processor rank and its corresponding line segment that it handles
     map<int, int> line = genArray(size, 0, 100, 123);
-    if (iProc == 1) {
-        map<int, int>::iterator it = line.begin();
-        while (it != line.end()) {
-            cout << "x = " << it->first << ", value = " << it->second << endl;
-            ++it;
+    for (int i = 0; i <= nProcs; ++i) {
+        if (iProc == i) {
+            cout << "Processor " << iProc << endl;
+            map<int, int>::iterator it = line.begin();
+            while (it != line.end()) {
+                cout << "x = " << it->first << ", value = " << it->second << endl;
+                ++it;
+            }
+            cout << endl;
         }
     }
+
+    findLocations(&locations, &line);
 
     MPI_Finalize();
     return 0;
