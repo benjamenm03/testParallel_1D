@@ -3,39 +3,42 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <map>
+#include <iostream>
 
-bool generate_points(int *array, int num_points, int range_start, int range_end, int seed) {
-    bool did_work = false;
+// ************************* VERY MUCH INCOMPLETE CODE *************************
+
+std::map<int, int> generate_points(int num_points, int range_start, int range_end, int seed) {
+    std::map<int, int> points;
 
     if (num_points <= 0) {
-        return did_work;
+        return points;
+        std::cout << "Error: Number of points must be greater than 0" << std::endl;
     }
 
     srand(seed);
-    array[0] = num_points;
-    for (int i = 1; i < num_points + 1; i++) {
-        array[i] = rand() % (range_end - range_start + 1) + range_start;
-        did_work = true;
+
+    for (int i = 0; i < (num_points + 1); i++) {
+        points[i] = rand() % (range_end - range_start + 1) + range_start;
     }
-    return did_work;
+
+    return points;
 }
 
-bool divide_list(int *array, int nProcs, int *owner_array) {
-    bool did_work = false;
+std::map<int, int> divide_list(const std::map<int, int> points, int nProcs) {
+    std::map<int, int> owners;
 
-    int array_size = array[0];
-    int sub_size = array_size / nProcs;
-    owner_array[0] = array_size;
+    int map_size = points.size();
+    int sub_size = map_size / nProcs;
 
     for (int i = 0; i < nProcs; i++) {
         int j = 0;
         while (j < sub_size) {
-            owner_array[i * sub_size + j + 1] = i;
             j++;
         }
     }
 
-    return did_work;
+    return owners;
 }
 
 main() {
