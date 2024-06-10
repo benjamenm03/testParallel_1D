@@ -8,6 +8,9 @@
 
 // ************************* VERY MUCH INCOMPLETE CODE *************************
 
+// COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
+// RUN COMMAND: mpirun -np 4 ./main
+
 std::map<int, int> generate_points(int num_points, int range_start, int range_end, int seed) {
     std::map<int, int> points;
 
@@ -57,7 +60,7 @@ std::map<int, int> divide_list(const std::map<int, int> points, int nProcs) {
     return owners;
 }
 
-main(int argc, char **argv) {
+int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
 
     int nProcs;
@@ -97,7 +100,7 @@ main(int argc, char **argv) {
         iterator++;
     }
 
-    // ************************* AI CODE *************************
+    // ************************* AI TESTER CODE / STARTS HERE*************************
 
     int local_count = local.size();
     MPI_Bcast(&local_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
