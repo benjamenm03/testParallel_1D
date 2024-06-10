@@ -12,26 +12,15 @@ using namespace std;
 
 
 // creates an array filled with random numbers
-map<int, int> genArray(int size, int range_start, int range_end, int seed) {
+map<int, int> genArray(int iProc, int subSize, int size, int start, int end) {
     // pair<location on the x-axis, value>
     map<int, int> line;
-    int nProcs, iProc;
-    MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
-    MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-
-    // calculates what processor takes care of how much of the array
-    // to make more efficient, maybe split up the remainders to the processors so that it's more evenly distributed
-    int subSize = size / nProcs;
-    if (size % nProcs != 0) ++subSize;
-
-    // set the seed for the random number generator
-    srand(seed);
 
     // fills the line with random numbers
     // each processor only fills their part of the line
     // rand() % (upper - lower + 1) + lower
     for (int i = iProc * subSize; i < iProc * subSize + subSize && i < size; ++i) {
-        line[i] = rand() % (range_end - range_start + 1) + range_start;
+        line[i] = rand() % (end - start + 1) + start;
     }
 
     return line;
@@ -39,16 +28,31 @@ map<int, int> genArray(int size, int range_start, int range_end, int seed) {
 
 // fills an array with the processors rank for all the indices (correlating to the x-axis) 
 // that the processor handles
-void findLocations(vector<int> *array, map<int, int> *line) {
-    int iProc;
-    MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
+vector<int> findLocations(map<int, int> *line, int size, int iProc) {
+    // initialize an array with the size of the whole line filled with -1's
+    vector<int> array (size, -1);
 
+    // this array will be the result after combining all arrays from all processors
+    vector<int> globalArray (size, -1);
+
+    // fills in the array with iProc if the local processor is responsible for that region of the line
+    // the rest of the line is still filled with -1's
     map<int, int>::iterator it = line->begin();
     while (it != line->end()) {
-        array->insert(array->begin() + it->first, iProc);
+        array.insert(array.begin() + it->first, iProc);
         ++it;
     }
+
+    // Combines all of the arrays that we just created and find the maximum values at every index across all arrays
+    // and put put that max value into globalArray (this will get rid of the -1's and replace it with the correct 
+    // processor number)
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(array.data(), globalArray.data(), size, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    return globalArray;
 }
+
+
 
 // Broadcast the location of one line (smaller line) (MPI_broadcast). 
 // Then, create an array that is the same size. Array is filled with -1 on both processors. 
@@ -56,11 +60,14 @@ void findLocations(vector<int> *array, map<int, int> *line) {
 // If the point is on the processor, then fill in the rank of the processor onto the array. 
 // The indices of the array are associated with the location of the line. 
 // Do MPI_Allgather, take the max value, now every processor has a full array filled with 0, 1, 2, or 3, and there are no -1 left.
-// // OR have a global array that can pass by reference and have all the processors fill in with????
 // Once you have the locations worked out, put a function on a processor that knows all of the data and try and get that data to all of the other processors
 
+// All processors knows how big the line is (for example, it goes from x = 0 to x = 10)
+// All processors knows that there are nProcs and nPts per processor
+// Each processor then make their own line of nPts
+// Each processor creates a line of nProcs * nPts and fill in the points that the local processor has
+// Create a global grid of size nProcs * nPts that all processors know, and then try to share this grid
 
-// I NEED TO FIGURE OUT HOW TO STORE THE LINE. RIGHT NOW, THE MAP GETS DESTROYED AFTER genArray FINISHES
 int main() {
 
     int nProcs, iProc;
@@ -68,16 +75,25 @@ int main() {
 
     // SET THE SIZE OF THE LINE
     // LINE WILL GO FROM x = 0 TO x = size - 1
-    int size = 10;
-    vector<int> locations;
-    locations.resize(size);
+    int start = 0;
+    int end = 7;
+    int size = end - start + 1;
 
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
 
+    // randomly calculate a seed for every processor
+    int seed = rand() % (((iProc + 1) * 1000000) - (iProc * 1000000) + 1) + (iProc * 1000000);
+    srand(seed);
+
+    // calculates what processor takes care of how much of the array
+    // to make more efficient, maybe split up the remainders to the processors so that it's more evenly distributed
+    int subSize = size / nProcs;
+    if (size % nProcs != 0) ++subSize;
+
     // prints out the processor rank and its corresponding line segment that it handles
-    map<int, int> line = genArray(size, 0, 100, 123);
+    map<int, int> line = genArray(iProc, subSize, size, start, end);
     for (int i = 0; i <= nProcs; ++i) {
         if (iProc == i) {
             cout << "Processor " << iProc << endl;
@@ -90,7 +106,16 @@ int main() {
         }
     }
 
-    findLocations(&locations, &line);
+    // finds what processor handles what part of the line and stores it in array
+    // prints array
+    vector<int> array = findLocations(&line, size, iProc);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (iProc == 0) {
+        for (int i = 0; i < array.size(); ++i) {
+            cout << "x = " << i << ", processor = " << array[i] << endl;
+        }
+    }
 
     MPI_Finalize();
     return 0;
