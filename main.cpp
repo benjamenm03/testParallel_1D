@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
         iterator++;
     }
 
-    // ************************* AI TESTER CODE / STARTS HERE*************************
+    // ************************* AI TESTER CODE / STARTS HERE *************************
 
     int local_count = local.size();
     MPI_Bcast(&local_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
