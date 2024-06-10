@@ -80,14 +80,14 @@ int main(int argc, char **argv) {
     int local_start = cummulative_start + iProc * sub_size;
     int local_end = local_start + sub_size - 1;
 
-    int num_points = 100;
+    int num_points = 101;
     int seed = 42;
     std::map<int, int> points = generate_points(num_points, cummulative_start, cummulative_end, seed);
 
     std::map<int, int> local;
     auto iterator = points.begin();
     for (int i = 0; i < points.size(); i++) {
-        if (iterator->second >= local_start && iterator->second <= local_end) {
+        if (iterator->second >= local_start && iterator->first <= local_end) {
             local[iterator->first] = iterator->second;
         }
         iterator++;
@@ -108,14 +108,16 @@ int main(int argc, char **argv) {
     // ************************* AI TESTER CODE / STARTS HERE *************************
 
     int local_count = local.size();
-    MPI_Bcast(&local_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    /*MPI_Bcast(&local_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (iProc == 0) {
         std::cout << "Processor 0 broadcasting count of local points: " << local_count << std::endl;
     }
     else {
         std::cout << "Processor " << iProc << " receiving count of local points: " << local_count << std::endl;
-    }
+    }*/
+
+    std::cout << "Processor " << iProc << " has: " << local_count << std::endl;
 
     MPI_Finalize();
     return 0;
