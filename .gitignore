@@ -8,7 +8,7 @@
 *.obj
 
 # VSCode Settings
-.vscode/
+.vscode
 
 # Precompiled Headers
 *.gch
