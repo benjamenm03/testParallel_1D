@@ -10,6 +10,17 @@
 
 using namespace std;
 
+void mapSum(void *inputBuffer, void *outputBuffer, int *length, MPI_Datatype *datatype) {
+    map<int, int> *in = static_cast<map<int, int> *> (inputBuffer);
+    map<int, int> *out = static_cast<map<int, int> *> (outputBuffer);
+    
+    map<int, int>::iterator input = in->begin();
+    map<int, int>::iterator output = out->begin();
+
+    for (int i = 0; i < *length; ++i) {
+        if (input->second > output->second) output->second = input->second;
+    }
+}
 
 // creates an array filled with random numbers
 map<int, int> genArray(int iProc, int subSize, int size, int start, int end) {
@@ -28,18 +39,24 @@ map<int, int> genArray(int iProc, int subSize, int size, int start, int end) {
 
 // fills an array with the processors rank for all the indices (correlating to the x-axis) 
 // that the processor handles
-vector<int> findLocations(map<int, int> *line, int size, int iProc) {
+map<int, int> findLocations(map<int, int> *line, int size, int start, int end, int iProc) {
     // initialize an array with the size of the whole line filled with -1's
-    vector<int> array (size, -1);
+    map<int, int> array;
+    for (int i = start; i <= end; ++i) {
+        array[i] = -1;
+    }
 
     // this array will be the result after combining all arrays from all processors
-    vector<int> globalArray (size, -1);
+    map<int, int> globalArray;
+    for (int i = start; i <= end; ++i) {
+        array[i] = -1;
+    }
 
     // fills in the array with iProc if the local processor is responsible for that region of the line
     // the rest of the line is still filled with -1's
     map<int, int>::iterator it = line->begin();
     while (it != line->end()) {
-        array.insert(array.begin() + it->first, iProc);
+        array[it->first] = iProc;
         ++it;
     }
 
@@ -47,7 +64,9 @@ vector<int> findLocations(map<int, int> *line, int size, int iProc) {
     // and put put that max value into globalArray (this will get rid of the -1's and replace it with the correct 
     // processor number)
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Allreduce(array.data(), globalArray.data(), size, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Op MPI_MAPSUM;
+    MPI_Op_create(mapSum, 1, &MPI_MAPSUM);
+    MPI_Allreduce(&array, &globalArray, size, MPI_2INT, MPI_MAPSUM, MPI_COMM_WORLD);
 
     return globalArray;
 }
@@ -77,13 +96,13 @@ int main() {
 
     // SET THE SIZE OF LINE 1
     // LINE WILL GO FROM x = 0 TO x = size - 1
-    int start1 = 3;
-    int end1 = 10;
+    int start1 = 0;
+    int end1 = 7;
     int size1 = end1 - start1 + 1;
 
     // SET THE SIZE OF LINE 2
-    int start2 = 0;
-    int end2 = 7;
+    int start2 = 3;
+    int end2 = 10;
     int size2 = end2 - start2 + 1;
 
     MPI_Init(NULL, NULL);
@@ -115,12 +134,9 @@ int main() {
 
     // finds what processor handles what part of the line and stores it in array
     // prints array
-    vector<int> array1 = findLocations(&line1, size1, iProc);
+    map<int, int> array1 = findLocations(&line1, size1, start1, end1, iProc);
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) {
-        for (int i = start1; i < start1 + array1.size(); ++i) {
-            cout << "x = " << i << ", processor = " << array1[i] << endl;
-        }
     }
 
 
