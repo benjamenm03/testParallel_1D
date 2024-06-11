@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
     std::map<int, int> local;
     auto iterator = points.begin();
     for (int i = 0; i < points.size(); i++) {
-        if (iterator->second >= local_start && iterator->first <= local_end) {
+        if (iterator->first >= local_start && iterator->first <= local_end) {
             local[iterator->first] = iterator->second;
         }
         iterator++;
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
         }
         iterator++;
     }
-    
+
     int local_count = local.size();
 
     std::cout << "Processor " << iProc << " has: " << local_count << std::endl;
