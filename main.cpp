@@ -6,7 +6,6 @@
 #include <map>
 #include <iostream>
 
-// ************************* VERY MUCH INCOMPLETE CODE *************************
 // COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
 // RUN COMMAND: mpirun -np 4 ./main
 
@@ -51,7 +50,7 @@ int main(int argc, char **argv) {
     int local_start = cummulative_start + iProc * sub_size;
     int local_end = local_start + sub_size - 1;
 
-    int num_points = 101;
+    int num_points = 100;
     int seed = 42;
     std::map<int, int> points = generate_points(num_points, cummulative_start, cummulative_end, seed);
 
