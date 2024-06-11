@@ -12,8 +12,18 @@
 // NEEDS ATTENTION:
 // - Implement "meaningful" data exchange using message passing
 
-std::map<int, int> gen_local_points(int iProc) {
+bool gen_local_points(int iProc, int nProcs, std::map<int, int> &local_map, int range_end) {
+    bool did_work = false;
+    int total_length = local_map.size();
+    int sub_size = total_length / nProcs;
+    int local_start = iProc * sub_size;
+    int local_end = local_start + sub_size - 1;
 
+    for (int i = local_start; i <= local_end; i++) {
+        local_map[i] = rand() % (range_end + 1);
+    }
+
+    return did_work;
 }
 
 int main(int argc, char **argv) {
