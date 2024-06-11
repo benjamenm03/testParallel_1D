@@ -65,32 +65,32 @@ int main(int argc, char **argv) {
     }
 
     // Ensure all processors have reached this point
-MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
 
-if (iProc == 0) {
-    // Processor 0 prints first
-    std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-    for (const auto &i : local) {
-        std::cout << "{" << i.first << "," << i.second << "} ";
-    }
-    std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
-}
-
-// Synchronize after processor 0 prints
-MPI_Barrier(MPI_COMM_WORLD);
-
-for (int i = 1; i < nProcs; i++) {
-    if (iProc == i) {
-        // Each processor waits for its turn
+    if (iProc == 0) {
+        // Processor 0 prints first
         std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-        for (const auto &j : local) {
-            std::cout << "{" << j.first << "," << j.second << "} ";
+        for (const auto &i : local) {
+            std::cout << "{" << i.first << "," << i.second << "} ";
         }
         std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
     }
-    // Synchronize after each processor prints
+
+    // Synchronize after processor 0 prints
     MPI_Barrier(MPI_COMM_WORLD);
-}
+
+    for (int i = 1; i < nProcs; i++) {
+        if (iProc == i) {
+            // Each processor waits for its turn
+            std::cout << "Processor " << iProc << " has the following points: " << std::endl;
+            for (const auto &j : local) {
+                std::cout << "{" << j.first << "," << j.second << "} ";
+            }
+            std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+        }
+        // Synchronize after each processor prints
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
 
     MPI_Finalize();
     return 0;
