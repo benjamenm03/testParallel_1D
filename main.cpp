@@ -19,7 +19,7 @@ map<int, int> genArray(int iProc, int subSize, int size, int start, int end) {
     // fills the line with random numbers
     // each processor only fills their part of the line
     // rand() % (upper - lower + 1) + lower
-    for (int i = iProc * subSize; i < iProc * subSize + subSize && i < size; ++i) {
+    for (int i = start + (iProc * subSize); i < start + (iProc * subSize + subSize) && i < start + size; ++i) {
         line[i] = rand() % (end - start + 1) + start;
     }
 
@@ -73,11 +73,18 @@ int main() {
     int nProcs, iProc;
     bool did_work;
 
-    // SET THE SIZE OF THE LINE
+    // NOTE - x cannot be negative
+
+    // SET THE SIZE OF LINE 1
     // LINE WILL GO FROM x = 0 TO x = size - 1
-    int start = 0;
-    int end = 7;
-    int size = end - start + 1;
+    int start1 = 3;
+    int end1 = 10;
+    int size1 = end1 - start1 + 1;
+
+    // SET THE SIZE OF LINE 2
+    int start2 = 0;
+    int end2 = 7;
+    int size2 = end2 - start2 + 1;
 
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
@@ -89,16 +96,16 @@ int main() {
 
     // calculates what processor takes care of how much of the array
     // to make more efficient, maybe split up the remainders to the processors so that it's more evenly distributed
-    int subSize = size / nProcs;
-    if (size % nProcs != 0) ++subSize;
+    int subSize = size1 / nProcs;
+    if (size1 % nProcs != 0) ++subSize;
 
     // prints out the processor rank and its corresponding line segment that it handles
-    map<int, int> line = genArray(iProc, subSize, size, start, end);
+    map<int, int> line1 = genArray(iProc, subSize, size1, start1, end1);
     for (int i = 0; i <= nProcs; ++i) {
         if (iProc == i) {
             cout << "Processor " << iProc << endl;
-            map<int, int>::iterator it = line.begin();
-            while (it != line.end()) {
+            map<int, int>::iterator it = line1.begin();
+            while (it != line1.end()) {
                 cout << "x = " << it->first << ", value = " << it->second << endl;
                 ++it;
             }
@@ -108,14 +115,40 @@ int main() {
 
     // finds what processor handles what part of the line and stores it in array
     // prints array
-    vector<int> array = findLocations(&line, size, iProc);
+    vector<int> array1 = findLocations(&line1, size1, iProc);
     MPI_Barrier(MPI_COMM_WORLD);
-
     if (iProc == 0) {
-        for (int i = 0; i < array.size(); ++i) {
-            cout << "x = " << i << ", processor = " << array[i] << endl;
+        for (int i = start1; i < start1 + array1.size(); ++i) {
+            cout << "x = " << i << ", processor = " << array1[i] << endl;
         }
     }
+
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    // prints out the second line
+    /*map<int, int> line2 = genArray(iProc, subSize, size2, start2, end2);
+    if (iProc == 0) cout << "\n-------------------- LINE TWO --------------------\n" << endl;
+    for (int i = 0; i <= nProcs; ++i) {
+        if (iProc == i) {
+            cout << "Processor " << iProc << endl;
+            map<int, int>::iterator it = line2.begin();
+            while (it != line2.end()) {
+                cout << "x = " << it->first << ", value = " << it->second << endl;
+                ++it;
+            }
+            cout << endl;
+        }
+    }*/
+
+    // prints array for second line 
+    /*vector<int> array2 = findLocations(&line2, size2, iProc);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (iProc == 0) {
+        for (int i = 0; i < array2.size(); ++i) {
+            cout << "x = " << i << ", processor = " << array2[i] << endl;
+        }
+    } */
+
 
     MPI_Finalize();
     return 0;
