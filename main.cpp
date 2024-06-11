@@ -9,24 +9,30 @@
 // COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
 // RUN COMMAND: mpirun -np 4 ./main
 
-// NEEDS FIXING:
-// - Need to implement "meaningful" data exchange using message passing
+// NEEDS ATTENTION:
+// - Implement "meaningful" data exchange using message passing
 
-std::map<int, int> generate_points(int num_points, int range_start, int range_end, int seed) {
-    std::map<int, int> points;
+bool gen_local_points(int iProc, int nProcs, std::map<int, int> &local_map, int range_end) {
+    bool did_work = false; // Debugger
+    int seed = 42;
+    int total_length = local_map.size(); // total number of elements in the map (num_points)
+    int sub_size = total_length / nProcs; // number of elements in each submap (processor num_points)
+    int local_start = iProc * sub_size; // local map start index
+    int local_end = local_start + sub_size - 1; // local map end index
 
-    if (num_points <= 0) {
-        return points;
-        std::cout << "Error: Number of points must be greater than 0" << std::endl;
+    if (total_length <= 0) {
+        std::cout << "Error: Length of local_map must be greater than 0" << std::endl;
+        return did_work;
     }
 
     srand(seed);
 
-    for (int i = 0; i < (num_points + 1); i++) {
-        points[i] = rand() % (range_end - range_start + 1) + range_start;
+    for (int i = local_start; i <= local_end; i++) {
+        local_map[i] = rand() % (range_end + 1);
+        did_work = true;
     }
 
-    return points;
+    return did_work;
 }
 
 int main(int argc, char **argv) {
@@ -35,7 +41,6 @@ int main(int argc, char **argv) {
     int nProcs;
     int iProc;
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
 
     if (iProc == 0) {
@@ -44,35 +49,23 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    int cummulative_start = 0;
-    int cummulative_end = 99;
-    int sub_size = (cummulative_end - cummulative_start + 1) / nProcs;
-    int local_start = cummulative_start + iProc * sub_size;
-    int local_end = local_start + sub_size - 1;
-
+    int range_end = 99;
     int num_points = 100;
-    int seed = 42;
-    std::map<int, int> points = generate_points(num_points, cummulative_start, cummulative_end, seed);
-
-    std::map<int, int> local;
-    auto iterator = points.begin();
-    for (int i = 0; i < points.size(); i++) {
-        if (iterator->first >= local_start && iterator->first <= local_end) {
-            local[iterator->first] = iterator->second;
-        }
-        iterator++;
+    std::map<int, int> local_map;
+    for (int i = 0; i < num_points; i++) {
+        local_map[i] = -1;
     }
+    gen_local_points(iProc, nProcs, local_map, range_end);
 
-    // Ensure all processors have reached this point
     MPI_Barrier(MPI_COMM_WORLD);
 
     if (iProc == 0) {
         // Processor 0 prints first
         std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-        for (const auto &i : local) {
+        for (const auto &i : local_map) {
             std::cout << "{" << i.first << "," << i.second << "} ";
         }
-        std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+        std::cout << "\nProcessor " << iProc << " has: " << local_map.size() << " points\n\n";
     }
 
     // Synchronize after processor 0 prints
@@ -82,13 +75,32 @@ int main(int argc, char **argv) {
         if (iProc == i) {
             // Each processor waits for its turn
             std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-            for (const auto &j : local) {
+            for (const auto &j : local_map) {
                 std::cout << "{" << j.first << "," << j.second << "} ";
             }
-            std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+            std::cout << "\nProcessor " << iProc << " has: " << local_map.size() << " points\n\n";
         }
         // Synchronize after each processor prints
         MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    // Serialize the data from local_map.second into an array
+    std::vector<int> local_array(local_map.size());
+    int index = 0;
+    for (std::map<int, int>::iterator i = local_map.begin(); i != local_map.end(); i++) {
+        local_array[index] = i->second;
+        index++;
+    }
+
+    std::vector<int> global_array(num_points);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(&local_array[0], &global_array[0], num_points, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    if (iProc == 0) {
+        std::cout << "Global array contains the following points:" << std::endl;
+        for (int i = 0; i < num_points; i++) {
+            std::cout << "{" << i << "," << global_array[i] << "} ";
+        }
     }
 
     MPI_Finalize();
