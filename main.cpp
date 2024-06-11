@@ -96,10 +96,15 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Allreduce(&local_array[0], &global_array[0], num_points, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
+    std::map<int, int> global_map;
+    for (int i = 0; i < num_points; i++) {
+        global_map[i] = global_array[i];
+    }
+
     if (iProc == 0) {
         std::cout << "Global array contains the following points:" << std::endl;
-        for (int i = 0; i < num_points; i++) {
-            std::cout << "{" << i << "," << global_array[i] << "} ";
+        for (const auto &i : global_map) {
+            std::cout << "{" << i.first << "," << i.second << "} ";
         }
     }
 
