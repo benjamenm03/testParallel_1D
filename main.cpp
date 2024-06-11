@@ -33,38 +33,6 @@ std::map<int, int> generate_points(int num_points, int range_start, int range_en
     return points;
 }
 
-/*std::map<int, int> divide_list(const std::map<int, int> points, int nProcs) {
-    std::map<int, int> owners;
-
-    int map_size = points.size();
-    int sub_size = map_size / nProcs;
-
-    for (int i = 0; i < nProcs; i++) {
-        int j = 0;
-        while (j < sub_size) {
-            j++;
-        }
-    }
-
-    return owners;
-}*/
-
-std::map<int, int> divide_list(const std::map<int, int> points, int nProcs) {
-    std::map<int, int> owners;
-
-    int map_size = points.size();
-    int sub_size = map_size / nProcs;
-
-    for (int i = 0; i < nProcs; i++) {
-        int j = 0;
-        while (j < sub_size) {
-            j++;
-        }
-    }
-
-    return owners;
-}
-
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
 
@@ -104,18 +72,8 @@ int main(int argc, char **argv) {
         }
         iterator++;
     }
-
-    // ************************* AI TESTER CODE / STARTS HERE *************************
-
+    
     int local_count = local.size();
-    /*MPI_Bcast(&local_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-    if (iProc == 0) {
-        std::cout << "Processor 0 broadcasting count of local points: " << local_count << std::endl;
-    }
-    else {
-        std::cout << "Processor " << iProc << " receiving count of local points: " << local_count << std::endl;
-    }*/
 
     std::cout << "Processor " << iProc << " has: " << local_count << std::endl;
 
