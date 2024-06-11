@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
     MPI_Barrier(MPI_COMM_WORLD);
 
     int range_end = 99;
-    int num_points = 100;
+    int num_points = 12;
     std::map<int, int> local_map;
     std::map<int, int> ownership_map;
     for (int i = 0; i < num_points; i++) {
@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     }
 
     int range_end2 = 99;
-    int num_points2 = 152;
+    int num_points2 = 16;
     std::map<int, int> local_map2;
     std::map<int, int> ownership_map2;
     for (int i = 0; i < num_points2; i++) {
