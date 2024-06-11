@@ -11,10 +11,7 @@
 // RUN COMMAND: mpirun -np 4 ./main
 
 // NEEDS FIXING:
-// - Division of points among processors. Getting weird distribution behavior... I'm tired.
-// - Need to check if this is anything close to what we want or need... I'm tired.
-// - Need to implement actual custom testing scripts.
-// - Need to implement "meaningful" data exchange using message passing... it's 3 am.
+// - Need to implement "meaningful" data exchange using message passing
 
 std::map<int, int> generate_points(int num_points, int range_start, int range_end, int seed) {
     std::map<int, int> points;
@@ -42,6 +39,12 @@ int main(int argc, char **argv) {
 
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
 
+    if (iProc == 0) {
+        std::cout << "\nFormat: {xLoc, val}" << std::endl;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
     int cummulative_start = 0;
     int cummulative_end = 99;
     int sub_size = (cummulative_end - cummulative_start + 1) / nProcs;
@@ -61,21 +64,33 @@ int main(int argc, char **argv) {
         iterator++;
     }
 
+    // Ensure all processors have reached this point
+MPI_Barrier(MPI_COMM_WORLD);
+
+if (iProc == 0) {
+    // Processor 0 prints first
     std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-    iterator = local.begin();
-    for (int i = 0; i < local.size(); i++) {
-        std::cout << iterator->second;
-        if (i < local.size() - 1) {
-            std::cout << ", ";
-        } else {
-            std::cout << std::endl;
-        }
-        iterator++;
+    for (const auto &i : local) {
+        std::cout << "{" << i.first << "," << i.second << "} ";
     }
+    std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+}
 
-    int local_count = local.size();
+// Synchronize after processor 0 prints
+MPI_Barrier(MPI_COMM_WORLD);
 
-    std::cout << "Processor " << iProc << " has: " << local_count << std::endl;
+for (int i = 1; i < nProcs; i++) {
+    if (iProc == i) {
+        // Each processor waits for its turn
+        std::cout << "Processor " << iProc << " has the following points: " << std::endl;
+        for (const auto &j : local) {
+            std::cout << "{" << j.first << "," << j.second << "} ";
+        }
+        std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+    }
+    // Synchronize after each processor prints
+    MPI_Barrier(MPI_COMM_WORLD);
+}
 
     MPI_Finalize();
     return 0;
