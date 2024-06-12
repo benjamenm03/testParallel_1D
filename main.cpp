@@ -17,8 +17,18 @@ void mapSum(void *inputBuffer, void *outputBuffer, int *length, MPI_Datatype *da
     map<int, int>::iterator input = in->begin();
     map<int, int>::iterator output = out->begin();
 
-    for (int i = 0; i < *length; ++i) {
+    // CANT ACCESS THE MAPS FOR SOME REASON
+    while (input != in->end()) {
+        cout << "x = " << input->first << ", value = " << input->second << endl;
+        ++input;
+    }
+
+    return;
+    // SOMETHING WRONG WITH THIS
+    while (input != in->end() && output != out->end()) {
         if (input->second > output->second) output->second = input->second;
+        ++input;
+        ++output;
     }
 }
 
@@ -49,7 +59,7 @@ map<int, int> findLocations(map<int, int> *line, int size, int start, int end, i
     // this array will be the result after combining all arrays from all processors
     map<int, int> globalArray;
     for (int i = start; i <= end; ++i) {
-        array[i] = -1;
+        globalArray[i] = -1;
     }
 
     // fills in the array with iProc if the local processor is responsible for that region of the line
@@ -65,8 +75,8 @@ map<int, int> findLocations(map<int, int> *line, int size, int start, int end, i
     // processor number)
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Op MPI_MAPSUM;
-    MPI_Op_create(mapSum, 1, &MPI_MAPSUM);
-    MPI_Allreduce(&array, &globalArray, size, MPI_2INT, MPI_MAPSUM, MPI_COMM_WORLD);
+    MPI_Op_create(&mapSum, 1, &MPI_MAPSUM);
+    MPI_Allreduce(&array, &globalArray, 1, MPI_INT, MPI_MAPSUM, MPI_COMM_WORLD);
 
     return globalArray;
 }
@@ -92,12 +102,10 @@ int main() {
     int nProcs, iProc;
     bool did_work;
 
-    // NOTE - x cannot be negative
-
     // SET THE SIZE OF LINE 1
     // LINE WILL GO FROM x = 0 TO x = size - 1
-    int start1 = 0;
-    int end1 = 7;
+    int start1 = -5;
+    int end1 = 2;
     int size1 = end1 - start1 + 1;
 
     // SET THE SIZE OF LINE 2
@@ -137,10 +145,15 @@ int main() {
     map<int, int> array1 = findLocations(&line1, size1, start1, end1, iProc);
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) {
+        map<int, int>::iterator it = array1.begin();
+        while (it != array1.end()) {
+            cout << "x = " << it->first << ", value = " << it->second << endl;
+            ++it;
+        }
     }
 
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
     // prints out the second line
     /*map<int, int> line2 = genArray(iProc, subSize, size2, start2, end2);
     if (iProc == 0) cout << "\n-------------------- LINE TWO --------------------\n" << endl;
