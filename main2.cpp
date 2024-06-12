@@ -9,24 +9,31 @@
 // COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
 // RUN COMMAND: mpirun -np 4 ./main
 
-// NEEDS FIXING:
-// - Need to implement "meaningful" data exchange using message passing
+// NEEDS ATTENTION:
+// - Implement "meaningful" data exchange using message passing
 
-std::map<int, int> generate_points(int num_points, int range_start, int range_end, int seed) {
-    std::map<int, int> points;
+bool gen_local_points(int iProc, int nProcs, std::map<int, int> &local_map, std::map<int, int> &ownership_map, int range_end) {
+    bool did_work = false; // Debugger
+    int seed = 42;
+    int total_length = local_map.size(); // total number of elements in the map (num_points)
+    int sub_size = total_length / nProcs; // number of elements in each submap (processor num_points)
+    int local_start = iProc * sub_size; // local map start index
+    int local_end = local_start + sub_size - 1; // local map end index
 
-    if (num_points <= 0) {
-        return points;
-        std::cout << "Error: Number of points must be greater than 0" << std::endl;
+    if (total_length <= 0) {
+        std::cout << "Error: Length of local_map must be greater than 0" << std::endl;
+        return did_work;
     }
 
     srand(seed);
 
-    for (int i = 0; i < (num_points + 1); i++) {
-        points[i] = rand() % (range_end - range_start + 1) + range_start;
+    for (int i = local_start; i <= local_end; i++) {
+        ownership_map[i] = iProc;
+        local_map[i] = rand() % (range_end + 1);
+        did_work = true;
     }
 
-    return points;
+    return did_work;
 }
 
 int main(int argc, char **argv) {
@@ -35,60 +42,139 @@ int main(int argc, char **argv) {
     int nProcs;
     int iProc;
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
 
     if (iProc == 0) {
-        std::cout << "\nFormat: {xLoc, val}" << std::endl;
+        std::cout << "\nFormat: {xLoc, val}\n" << std::endl;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    int cummulative_start = 0;
-    int cummulative_end = 99;
-    int sub_size = (cummulative_end - cummulative_start + 1) / nProcs;
-    int local_start = cummulative_start + iProc * sub_size;
-    int local_end = local_start + sub_size - 1;
-
-    int num_points = 100;
-    int seed = 42;
-    std::map<int, int> points = generate_points(num_points, cummulative_start, cummulative_end, seed);
-
-    std::map<int, int> local;
-    auto iterator = points.begin();
-    for (int i = 0; i < points.size(); i++) {
-        if (iterator->first >= local_start && iterator->first <= local_end) {
-            local[iterator->first] = iterator->second;
-        }
-        iterator++;
+    int range_end = 99;
+    int num_points = 12;
+    std::map<int, int> local_map;
+    std::map<int, int> ownership_map;
+    for (int i = 0; i < num_points; i++) {
+        local_map[i] = -1;
+        ownership_map[i] = -1;
     }
 
-    // Ensure all processors have reached this point
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    if (iProc == 0) {
-        // Processor 0 prints first
-        std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-        for (const auto &i : local) {
-            std::cout << "{" << i.first << "," << i.second << "} ";
-        }
-        std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+    int range_end2 = 99;
+    int num_points2 = 16;
+    std::map<int, int> local_map2;
+    std::map<int, int> ownership_map2;
+    for (int i = 0; i < num_points2; i++) {
+        local_map2[i] = -1;
+        ownership_map2[i] = -1;
     }
 
-    // Synchronize after processor 0 prints
+    gen_local_points(iProc, nProcs, local_map, ownership_map, range_end);
+    gen_local_points(iProc, nProcs, local_map2, ownership_map2, range_end2);
+
     MPI_Barrier(MPI_COMM_WORLD);
 
-    for (int i = 1; i < nProcs; i++) {
+    for (int i = 0; i < nProcs; i++) {
         if (iProc == i) {
-            // Each processor waits for its turn
-            std::cout << "Processor " << iProc << " has the following points: " << std::endl;
-            for (const auto &j : local) {
+            std::cout << "Processor " << iProc << " has the following points on map 1:" << std::endl;
+            for (const auto &j : local_map) {
                 std::cout << "{" << j.first << "," << j.second << "} ";
             }
-            std::cout << "\nProcessor " << iProc << " has: " << local.size() << " points\n\n";
+            std::cout << "\nProcessor " << iProc << ", map 1 has: " << local_map.size() << " points\n\n";
         }
-        // Synchronize after each processor prints
         MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    for (int i = 0; i < nProcs; i++) {
+        if (iProc == i) {
+            std::cout << "Processor " << iProc << " has the following points on map 2:" << std::endl;
+            for (const auto &j : local_map2) {
+                std::cout << "{" << j.first << "," << j.second << "} ";
+            }
+            std::cout << "\nProcessor " << iProc << ", map 2 has: " << local_map2.size() << " points\n\n";
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+    std::vector<int> local_array(local_map.size());
+    int index = 0;
+    for (std::map<int, int>::iterator i = local_map.begin(); i != local_map.end(); i++) {
+        local_array[index] = i->second;
+        index++;
+    }
+
+    std::vector<int> ownership_array(ownership_map.size());
+    index = 0;
+    for (std::map<int, int>::iterator i = ownership_map.begin(); i != ownership_map.end(); i++) {
+        ownership_array[index] = i->second;
+        index++;
+    }
+
+    std::vector<int> local_array2(local_map2.size());
+    int index2 = 0;
+    for (std::map<int, int>::iterator i = local_map2.begin(); i != local_map2.end(); i++) {
+        local_array2[index2] = i->second;
+        index2++;
+    }
+
+    std::vector<int> ownership_array2(ownership_map2.size());
+    index2 = 0;
+    for (std::map<int, int>::iterator i = ownership_map2.begin(); i != ownership_map2.end(); i++) {
+        ownership_array2[index2] = i->second;
+        index2++;
+    }
+
+    std::vector<int> global_array(num_points);
+    std::vector<int> global_ownership_array(num_points);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(&local_array[0], &global_array[0], num_points, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&ownership_array[0], &global_ownership_array[0], num_points, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    std::vector<int> global_array2(num_points2);
+    std::vector<int> global_ownership_array2(num_points2);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Allreduce(&local_array2[0], &global_array2[0], num_points2, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&ownership_array2[0], &global_ownership_array2[0], num_points2, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    std::map<int, int> global_map;
+    for (int i = 0; i < num_points; i++) {
+        global_map[i] = global_array[i];
+    }
+
+    std::map<int, int> global_ownership_map;
+    for (int i = 0; i < num_points; i++) {
+        global_ownership_map[i] = global_ownership_array[i];
+    }
+
+    std::map<int, int> global_map2;
+    for (int i = 0; i < num_points2; i++) {
+        global_map2[i] = global_array2[i];
+    }
+
+    std::map<int, int> global_ownership_map2;
+    for (int i = 0; i < num_points2; i++) {
+        global_ownership_map2[i] = global_ownership_array2[i];
+    }
+
+    if (iProc == 0) {
+        std::cout << "Global map 1 contains the following points:" << std::endl;
+        for (const auto &i : global_map) {
+            std::cout << "{" << i.first << "," << i.second << "} ";
+        }
+        std::cout << "\n\nGlobal ownership map 1:" << std::endl;
+        for (const auto &i : global_ownership_map) {
+            std::cout << "{" << i.first << "," << i.second << "} ";
+        }
+    }
+
+    if (iProc == 0) {
+        std::cout << "\n\nGlobal map 2 contains the following points:" << std::endl;
+        for (const auto &i : global_map2) {
+            std::cout << "{" << i.first << "," << i.second << "} ";
+        }
+        std::cout << "\n\nGlobal ownership map 2:" << std::endl;
+        for (const auto &i : global_ownership_map2) {
+            std::cout << "{" << i.first << "," << i.second << "} ";
+        }
     }
 
     MPI_Finalize();
