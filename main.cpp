@@ -30,9 +30,9 @@ bool gen_grid_ref(int iProc, int nProcs, std::vector<int> &grid) {
     return did_work;
 }
 
-bool gen_temp_ref(int iProc, int nProcs, std::vector<int> &grid_ref, std::vector<int> &grid) {
+bool gen_temp_ref(int iProc, int nProcs, std::vector<int> &grid_ref, std::vector<int> &temp_ref) {
     bool did_work = false;
-    int total_length = grid.size();
+    int total_length = temp_ref.size();
     int sub_size = total_length / nProcs;
     int local_start = iProc * sub_size;
     int local_end = local_start + sub_size - 1;
@@ -43,7 +43,7 @@ bool gen_temp_ref(int iProc, int nProcs, std::vector<int> &grid_ref, std::vector
     }
 
     for (int i = local_start; i <= local_end; i++) {
-        grid[i] = 200 + 100 * sin(i * 2 * M_PI / 100);
+        temp_ref[i] = 200 + 100 * sin(grid_ref[i] * 2 * M_PI / 100);
     }
 }
 
@@ -59,7 +59,8 @@ int main(int argc, char **argv) {
     int nPts = 100;
     int start_index = 0;
     int end_index = 99;
-    std::vector<int> grid_ref(nPts);
+    std::vector<int> grid_ref(nPts, -1);
+    std::vector<int> temp_ref(nPts, -1);
 
-
+    gen_grid_ref(iProc, nProcs, grid_ref);
 }
