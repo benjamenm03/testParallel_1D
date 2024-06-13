@@ -1,3 +1,5 @@
+// Author: Benjamen Miller, University of Michigan - Ann Arbor
+// Date: 06/13/2024
 // main.cpp file for testing one-dimensional examples of MPI programs for Aether
 
 #include <mpi.h>
@@ -11,7 +13,7 @@
 // COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
 // RUN COMMAND: mpirun -np 4 ./main
 
-// gen_grid_ref:
+// GEN_GRID_REF:
 // Modifies grid_ref (map of doubles) to be a simple single-dimensional grid of points with a logically increasing format
 // within a specified range. Each processor is assigned a chunk of grid_ref to own.
 std::map<double, double> gen_grid_ref(int iProc, int nProcs, std::map<double, double> &grid_ref, double start_index, double end_index, int nPts) {
@@ -39,7 +41,7 @@ std::map<double, double> gen_grid_ref(int iProc, int nProcs, std::map<double, do
     return local_ownership_map;
 }
 
-// gen_temp_ref:
+// GEN_TEMP_REF:
 // Modifies temp_ref (map of doubles) to be a simple single-dimensional grid of points with a sinusoidal temperature
 // based on the grid_ref. Each processor is assigned a chunk of temp_ref to own.
 std::map<double, double> gen_temp_ref(int iProc, int nProcs, std::map<double, double> &grid_ref, std::map<double, double> &temp_ref) {
@@ -68,7 +70,7 @@ std::map<double, double> gen_temp_ref(int iProc, int nProcs, std::map<double, do
     return local_ownership_map;
 }
 
-// pack_map:
+// PACK_MAP:
 // Packs a map of doubles into a vector of doubles to be used in MPI handling
 std::vector<double> pack_map(std::map<double, double> &map) {
     std::vector<double> packed_map(map.size() * 2);
@@ -79,7 +81,7 @@ std::vector<double> pack_map(std::map<double, double> &map) {
     return packed_map;
 }
 
-// unpack_vector:
+// UNPACK_VECTOR:
 // Unpacks a vector of doubles into a map of doubles to be used in MPI handling
 std::map<double, double> unpack_vector(std::vector<double> &packed_map) {
     std::map<double, double> map;
@@ -89,7 +91,6 @@ std::map<double, double> unpack_vector(std::vector<double> &packed_map) {
     return map;
 }
 
-// Main function
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv); // Initialize MPI
 
