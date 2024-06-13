@@ -88,6 +88,8 @@ map<int, int> findLocations(map<int, int> *grid, int size, int start, int iProc)
 
 
 // --------------------- NEXT STEPS ---------------------
+// try different intervals, for example 0.5 intervals for x
+
 // If we are using 4 processors, then one processor can communicate with 3 other processors and itself
 // Find out how many points each processor needs to send to all of the other processors
 // Print out the results
@@ -118,29 +120,19 @@ int main() {
     srand(seed);
 
     // calculates what processor takes care of how much of the array
-    // to make more efficient, maybe split up the remainders to the processors so that it's more evenly distributed
     int subSize = size1 / nProcs;
     if (size1 % nProcs != 0) ++subSize;
 
-    // prints out the processor rank and its corresponding grid segment that it handles
+
+
+
+    // generates grid 1 (each processor handles a part of grid 1)
     map<int, int> grid1 = genArray(iProc, subSize, size1, start1, end1);
-    for (int i = 0; i <= nProcs; ++i) {
-        if (iProc == i) {
-            cout << "Processor " << iProc << endl;
-            map<int, int>::iterator it = grid1.begin();
-            while (it != grid1.end()) {
-                cout << "x = " << it->first << ", value = " << it->second << endl;
-                ++it;
-            }
-            cout << endl;
-        }
-    }
 
     // finds what processor handles what part of the grid and stores it in array
     // prints array
     MPI_Barrier(MPI_COMM_WORLD);
     map<int, int> array1 = findLocations(&grid1, size1, start1, iProc);
-    MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) {
         map<int, int>::iterator it = array1.begin();
         while (it != array1.end()) {
@@ -150,22 +142,10 @@ int main() {
     }
 
 
-    MPI_Barrier(MPI_COMM_WORLD);
-    // prints out the second grid
+    // generates grid 2 (each processor handles a part of grid 2)
     map<int, int> grid2 = genArray(iProc, subSize, size2, start2, end2);
-    if (iProc == 0) cout << "\n-------------------- grid TWO --------------------\n" << endl;
-    for (int i = 0; i <= nProcs; ++i) {
-        if (iProc == i) {
-            cout << "Processor " << iProc << endl;
-            map<int, int>::iterator it = grid2.begin();
-            while (it != grid2.end()) {
-                cout << "x = " << it->first << ", value = " << it->second << endl;
-                ++it;
-            }
-            cout << endl;
-        }
-    }
 
+    if (iProc == 0) cout << "\n-------------------- grid TWO --------------------\n" << endl;
     // prints array for second grid 
     MPI_Barrier(MPI_COMM_WORLD);
     map<int, int> array2 = findLocations(&grid2, size2, start2, iProc);
