@@ -9,6 +9,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <string>
 
 // COMPILE COMMAND: mpic++ -std=c++11 main.cpp -o main
 // RUN COMMAND: mpirun -np 4 ./main
@@ -91,6 +92,24 @@ std::map<double, double> unpack_vector(std::vector<double> &packed_map) {
     return map;
 }
 
+void print_data(int iProc, std::map<double, double> &data, std::string header) {
+    if (iProc == 0) {
+        std::cout << "\n" << header << std::endl;
+        for (const auto& pair : data) {
+            std::cout << pair.first << ": " << pair.second << std::endl;
+        }
+    }
+}
+
+void print_data(int iProc, std::vector<double> &data, std::string header) {
+    if (iProc == 0) {
+        std::cout << "\n" << header << std::endl;
+        for (int i = 0; i < data.size(); i += 2) {
+            std::cout << data[i] << ": " << data[i + 1] << std::endl;
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     MPI_Init(&argc, &argv); // Initialize MPI
 
@@ -133,18 +152,8 @@ int main(int argc, char **argv) {
     MPI_Allreduce(&packed_grid_copy_ownership[0], &packed_global_grid_copy_ownership[0], packed_grid_copy_ownership.size(), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     std::map<double, double> global_grid_copy_ownership = unpack_vector(packed_global_grid_copy_ownership); // Unpack packed_global_grid_copy_ownership back into a map of doubles
 
-    // Print out global_grid_copy and global_grid_copy_ownership once (if processor rank is 0)
-    if (iProc == 0) {
-        std::cout << "Global Grid Copy:" << std::endl;
-        for (const auto& pair : global_grid_copy) {
-            std::cout << pair.first << ": " << pair.second << std::endl;
-        }
-
-        std::cout << "Global Grid Copy Ownership:" << std::endl;
-        for (const auto& pair : global_grid_copy_ownership) {
-            std::cout << pair.first << ": " << pair.second << std::endl;
-        }
-    }
+    print_data(iProc, global_grid_copy, "Global Grid Copy:");
+    print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:");
 
     MPI_Finalize(); // Finalize MPI
 }
