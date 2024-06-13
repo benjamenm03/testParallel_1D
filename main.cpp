@@ -69,13 +69,35 @@ std::map<double, double> gen_temp_ref(int iProc, int nProcs, std::map<double, do
     return local_ownership_map;
 }
 
-// PACK_MAP:
+// PACK_MAP (entire map):
 // Packs a map of doubles into a vector of doubles to be used in MPI handling
 std::vector<double> pack_map(std::map<double, double> &map) {
     std::vector<double> packed_map;
     for (auto const &pair : map) {
         packed_map.push_back(pair.first);
         packed_map.push_back(pair.second);
+    }
+    return packed_map;
+}
+
+// PACK_MAP (single index):
+// Packs a single index from a map of doubles into a vector of doubles to be used in MPI handling
+std::vector<double> pack_map(std::map<double, double> &map, double index) {
+    std::vector<double> packed_map;
+    packed_map.push_back(index);
+    packed_map.push_back(map[index]);
+    return packed_map;
+}
+
+// PACK_MAP (range of values):
+// Packs a range of values from a map of doubles into a vector of doubles to be used in MPI handling
+std::vector<double> pack_map(std::map<double, double> &map, double start_index, double end_index) {
+    std::vector<double> packed_map;
+    for (auto const &pair : map) {
+        if (pair.first >= start_index && pair.first <= end_index) {
+            packed_map.push_back(pair.first);
+            packed_map.push_back(pair.second);
+        }
     }
     return packed_map;
 }
