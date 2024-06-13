@@ -10,6 +10,7 @@
 
 using namespace std;
 
+// Tried to create my own MPI function for MPI_Allreduce
 /*void mapSum(void *inputBuffer, void *outputBuffer, int *length, MPI_Datatype *datatype) {
     map<int, int> *in = static_cast<map<int, int> *> (inputBuffer);
     map<int, int> *out = static_cast<map<int, int> *> (outputBuffer);
@@ -86,19 +87,12 @@ map<int, int> findLocations(map<int, int> *grid, int size, int start, int iProc)
 
 
 
-// Broadcast the location of one grid (smaller grid) (MPI_broadcast). 
-// Then, create an array that is the same size. Array is filled with -1 on both processors. 
-// Go through locations and ask, is this point on my processor? 
-// If the point is on the processor, then fill in the rank of the processor onto the array. 
-// The indices of the array are associated with the location of the grid. 
-// Do MPI_Allgather, take the max value, now every processor has a full array filled with 0, 1, 2, or 3, and there are no -1 left.
-// Once you have the locations worked out, put a function on a processor that knows all of the data and try and get that data to all of the other processors
+// --------------------- NEXT STEPS ---------------------
+// If we are using 4 processors, then one processor can communicate with 3 other processors and itself
+// Find out how many points each processor needs to send to all of the other processors
+// Print out the results
 
-// All processors knows how big the grid is (for example, it goes from x = 0 to x = 10)
-// All processors knows that there are nProcs and nPts per processor
-// Each processor then make their own grid of nPts
-// Each processor creates a grid of nProcs * nPts and fill in the points that the local processor has
-// Create a global grid of size nProcs * nPts that all processors know, and then try to share this grid
+// Figure out how to actually send the data and receive the data
 
 int main() {
 
