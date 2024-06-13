@@ -17,12 +17,16 @@ bool gen_grid_ref(int iProc, int nProcs, std::map<double, double> &grid_ref, dou
     int local_start = iProc * sub_size; // Local map start index
     double local_end = local_start + sub_size - 1; // Local map end index
     double step_size = (end_index - start_index + 1) / total_length; // Step size for each index
-    std::cout << "Step size: " << step_size << "\n"; // Print step size checker
 
     // Check if total_length is less than or equal to 0
     if (total_length <= 0) {
         std::cout << "Error: Size of grid_ref must be greater than 0" << std::endl;
         return did_work;
+    }
+
+    // Fill in every index of the map with a default value of -1
+    for (double i = start_index; i <= end_index; i += step_size) {
+        grid_ref[i] = -1;
     }
 
     // Generate processor's chunk of grid_ref
@@ -44,12 +48,15 @@ bool gen_temp_ref(int iProc, int nProcs, std::map<double, double> &grid_ref, std
     int local_start = iProc * sub_size; // Local map start index
     double local_end = local_start + sub_size - 1; // Local map end index
     double step_size = (end_index - start_index + 1) / total_length; // Step size for each index
-    std::cout << "Step size: " << step_size << "\n"; // Print step size checker
 
     // Check if total_length is less than or equal to 0
     if (total_length <= 0) {
         std::cout << "Error: Size of temp_ref must be greater than 0" << std::endl;
         return did_work;
+    }
+
+    for (double i = start_index; i <= end_index; i += step_size) {
+        temp_ref[i] = -1;
     }
 
     // Generate processor's chunk of temp_ref
@@ -80,6 +87,10 @@ int main(int argc, char **argv) {
     // Each processor generates its own chunk of grid_ref and temp_ref
     gen_grid_ref(iProc, nProcs, grid_ref, grid_ref_start_index, grid_ref_end_index);
     gen_temp_ref(iProc, nProcs, grid_ref, temp_ref);
+
+    int grid_copy_nPts = 120;
+    int grid_copy_start_index = 20;
+    int grid_copy_end_index = 79;
 
     MPI_Finalize(); // Finalize MPI
 }
