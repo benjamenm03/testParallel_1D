@@ -10,61 +10,48 @@
 
 using namespace std;
 
-// Tried to create my own MPI function for MPI_Allreduce
-/*void mapSum(void *inputBuffer, void *outputBuffer, int *length, MPI_Datatype *datatype) {
-    map<int, int> *in = static_cast<map<int, int> *> (inputBuffer);
-    map<int, int> *out = static_cast<map<int, int> *> (outputBuffer);
-    
-    map<int, int>::iterator input = in->begin();
-    map<int, int>::iterator output = out->begin();
 
-    // CANT ACCESS THE MAPS FOR SOME REASON
-    while (input != in->end()) {
-        cout << "HELP x = " << input->first << ", value = " << input->second << endl;
-        ++input;
-    }
-
-    for (int i = 0; i < *length; ++i) {
-        cout << "HELP x = " << input->first << ", value = " << input->second << endl;
-        if (i < *length - 1) ++input;
-    }
-
-    return;
-    // SOMETHING WRONG WITH THIS
-    while (input != in->end() && output != out->end()) {
-        if (input->second > output->second) output->second = input->second;
-        ++input;
-        ++output;
-    }
-}*/
-
-// creates an array filled with random numbers
-map<int, int> genArray(int iProc, int subSize, int size, int start, int end) {
+/// @brief creates a map that goes from x = start to x = end (inclusive) 
+///        with each x-value getting a randomly generated double
+/// @param iProc the rank of the processor that's calling the function
+/// @param subSize the size of the grid that each processor is responsible for
+/// @param size the total size of the grid
+/// @param start the starting x-value of the grid
+/// @param end the ending x-value of the grid
+/// @return returns the map
+map<double, double> genArray(int iProc, int subSize, int size, int start, int end) {
     // pair<location on the x-axis, value>
-    map<int, int> grid;
+    map<double, double> grid;
 
     // fills the grid with random numbers
     // each processor only fills their part of the grid
     // rand() % (upper - lower + 1) + lower
     for (int i = start + (iProc * subSize); i < start + (iProc * subSize + subSize) && i < start + size; ++i) {
-        grid[i] = rand() % (end - start + 1) + start;
+        grid[i] = random() % (end - start + 1) + start;
     }
 
     return grid;
 }
 
-// fills an array with the processors rank for all the indices (correlating to the x-axis) 
-// that the processor handles
-map<int, int> findLocations(map<int, int> *grid, int size, int start, int iProc) {
+
+
+/// @brief fills an array with the processors rank for all the indices 
+///        (correlating to the x-axis) that the processor handles
+/// @param grid the grid that each processor has
+/// @param size the total size of the grid
+/// @param start the starting x-value of the grid
+/// @param iProc the processor's rank that's calling the function
+/// @return a map that contains information about what processor knows what
+map<double, double> findLocations(map<double, double> *grid, int size, int start, int iProc) {
     // initialize a vector with the size of the whole grid filled with -1's
-    vector<int> array (size, -1);
+    vector<double> array (size, -1);
 
     // this vector will be the result after combining all arrays from all processors
-    vector<int> globalArray (size, -1);
+    vector<double> globalArray (size, -1);
 
     // fills in the vector with iProc if the local processor is responsible for that region of the grid
     // the rest of the grid is still filled with -1's
-    map<int, int>::iterator it = grid->begin();
+    map<double, double>::iterator it = grid->begin();
     while (it != grid->end()) {
         array[it->first - start] = iProc;
         ++it;
@@ -74,15 +61,69 @@ map<int, int> findLocations(map<int, int> *grid, int size, int start, int iProc)
     // and put that max value into globalArray (this will get rid of the -1's and replace it with the correct 
     // processor rank)
     MPI_Barrier(MPI_COMM_WORLD);
-    MPI_Allreduce(array.data(), globalArray.data(), array.size(), MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(array.data(), globalArray.data(), array.size(), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
     // turns the vector back into a map so that we have the right x values
-    map<int, int> answer;
+    map<double, double> answer;
     for (int i = 0; i < globalArray.size(); ++i) {
         answer[i + start] = globalArray[i];
     }
 
     return answer;
+}
+
+
+
+/// @brief prints the whole grid
+/// @param array the map that contains information about what processor knows what
+/// @param grid the grid that each processor has
+/// @param iProc the processor rank that's calling the function
+void printGrid(map<double, double> *array, map<double, double> *grid, int iProc) {
+    map<double, double>::iterator it = array->begin();
+
+    while (it != array->end()) {
+        if (iProc == it->second) {
+            cout << "x = " << it->first << ", value = " << grid->at(it->first) << endl;
+        }
+        ++it;
+    }
+}
+
+
+
+/// @brief find the rank of the processor that contains the data at x = xPos
+/// @param array the array that contains information about what processor knows what
+/// @param xPos the x position that we are interested in
+/// @return the rank of the processor tha contains the data at x = xPos.
+///         If the xPos cannot be found, return -1
+int findProc(map<double, double> *array, double xPos) {
+    map<double, double>::iterator it = array->begin();
+    
+    while (it != array->end()) {
+        if (it->first == xPos) return it->second;
+        ++it;
+    }
+
+    return -1;
+}
+
+
+
+
+int getValue(map<double, double> *receive, map<double, double> *send, map<double, double> *grid, 
+              int iProc, double xPos, double *answer) {
+    int rcv = findProc(receive, xPos);
+    int snd = findProc(send, xPos);
+
+    if (iProc == snd) {
+        int se = grid->at(xPos);
+        MPI_Send(&se, 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+    }
+    else if (iProc == rcv) {
+        MPI_Recv(&answer, 1, MPI_DOUBLE, snd, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    }
+
+    return rcv;
 }
 
 
@@ -116,7 +157,7 @@ int main() {
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
 
     // randomly calculate a seed for every processor
-    int seed = rand() % (((iProc + 1) * 1000000) - (iProc * 1000000) + 1) + (iProc * 1000000);
+    double seed = random() % (((iProc + 1) * 1000000) - (iProc * 1000000) + 1) + (iProc * 1000000);
     srand(seed);
 
     // calculates what processor takes care of how much of the array
@@ -125,16 +166,15 @@ int main() {
 
 
 
-
     // generates grid 1 (each processor handles a part of grid 1)
-    map<int, int> grid1 = genArray(iProc, subSize, size1, start1, end1);
+    map<double, double> grid1 = genArray(iProc, subSize, size1, start1, end1);
 
     // finds what processor handles what part of the grid and stores it in array
     // prints array
     MPI_Barrier(MPI_COMM_WORLD);
-    map<int, int> array1 = findLocations(&grid1, size1, start1, iProc);
+    map<double, double> array1 = findLocations(&grid1, size1, start1, iProc);
     if (iProc == 0) {
-        map<int, int>::iterator it = array1.begin();
+        map<double, double>::iterator it = array1.begin();
         while (it != array1.end()) {
             cout << "x = " << it->first << ", value = " << it->second << endl;
             ++it;
@@ -143,21 +183,53 @@ int main() {
 
 
     // generates grid 2 (each processor handles a part of grid 2)
-    map<int, int> grid2 = genArray(iProc, subSize, size2, start2, end2);
+    map<double, double> grid2 = genArray(iProc, subSize, size2, start2, end2);
 
-    if (iProc == 0) cout << "\n-------------------- grid TWO --------------------\n" << endl;
+    if (iProc == 0) cout << "\n-------------------- GRID TWO --------------------\n" << endl;
     // prints array for second grid 
     MPI_Barrier(MPI_COMM_WORLD);
-    map<int, int> array2 = findLocations(&grid2, size2, start2, iProc);
+    map<double, double> array2 = findLocations(&grid2, size2, start2, iProc);
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) {
-        map<int, int>::iterator it = array2.begin();
+        map<double, double>::iterator it = array2.begin();
         while (it != array2.end()) {
             cout << "x = " << it->first << ", value = " << it->second << endl;
             ++it;
         }
     }
 
+    if (iProc == 0) cout << "\n-------------------- testing --------------------\n" << endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (iProc == 0) cout << "GRID ONE" << endl;
+    sleep(1);
+    printGrid(&array1, &grid1, iProc);
+
+    sleep(1);
+    if (iProc == 0) cout << endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (iProc == 0) cout << "GRID TWO" << endl;
+    sleep(1);
+    printGrid(&array2, &grid2, iProc);
+
+    sleep(1);
+    if (iProc == 0) {
+        cout << endl;
+        cout << "TEST SUM" << endl;
+    }
+
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    double test;
+    int val1 = findProc(&array1, 1);
+    int val2 = findProc(&array2, 1);
+    getValue(&array1, &array2, &grid2, iProc, 1, &test);
+    if (iProc == val1) {
+        cout << "val1 = " << val1 << endl;
+        cout << "val2 = " << val2 << endl;
+        cout << "test = " << test << endl;
+    }
 
     MPI_Finalize();
     return 0;
