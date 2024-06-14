@@ -71,8 +71,5 @@ int main(int argc, char **argv) {
         }
     }
 
-    // Now sending and receiving is "easily" completed. Use det_owner() to find which processors need to communicate, then
-    // use MPI_Send() and MPI_Recv() to feed in the grids you want to exchange data on, along with the indices you want exchanged.
-
     MPI_Finalize(); // Finalize MPI
 }

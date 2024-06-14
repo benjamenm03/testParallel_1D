@@ -185,3 +185,29 @@ void print_vector(int iProc, std::vector<double> &data) {
         }
     }
 }
+
+// ******************************* THIS DOESN'T WORK YET *******************************
+// TRANSFER_DATA (single index):
+// Transfers a single index from one map to another
+void transfer_data(int iProc, std::map<double, double> &source_map, std::map<double, double> &dest_map, double index) {
+    if ((source_map.find(index) != source_map.end()) && (dest_map.find(index) != dest_map.end())) {
+        int source_owner = det_owner(iProc, source_map, index);
+        int dest_owner = det_owner(iProc, dest_map, index);
+        if (source_owner == iProc && dest_owner == iProc) {
+            dest_map[index] = source_map[index];
+        } else {
+            MPI_Send(&source_map[index], 1, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
+            MPI_Recv(&dest_map[index], 1, MPI_DOUBLE, source_owner, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+    } else if ((source_map.find(index) == source_map.end()) && (dest_map.find(index) != dest_map.end())) {
+
+        int dest_owner = det_owner(iProc, dest_map, index);
+        std::cout << "WARNING: Source map does not contain index: " << index << std::endl;
+        std::cout << "Extrapolating data from neighboring indices..." << std::endl;
+
+
+    } else if ((source_map.find(index) != source_map.end()) && (dest_map.find(index) == dest_map.end())) {
+        std::cout << "Error: Destination map does not contain index: " << index << std::endl;
+    }
+}
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ THIS DOESN'T WORK YET ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

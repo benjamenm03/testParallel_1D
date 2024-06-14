@@ -58,4 +58,10 @@ void print_data(int iProc, std::vector<double> &data, std::string header);
 // Prints a standard vector in csv format
 void print_vector(int iProc, std::vector<double> &data);
 
+// ******************************* THIS DOESN'T WORK YET *******************************
+// TRANSFER_DATA (single index):
+// Transfers a single index from one map to another
+void transfer_data(int iProc, std::map<double, double> &source_map, std::map<double, double> &dest_map, double index);
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ THIS DOESN'T WORK YET ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 #endif
