@@ -160,7 +160,7 @@ void print_data(int iProc, std::map<double, double> &data, std::string header) {
 
 // PRINT_DATA (vector<double>):
 // Prints out a vector of doubles with a header in the format of "index: value".
-// This should only be used for printing vectors that are packed and have original
+// WARNING: This should only be used for printing vectors that are packed and have original
 // format of a map, or are intended to be seen as a map.
 void print_data(int iProc, std::vector<double> &data, std::string header) {
     if (iProc == 0) {
