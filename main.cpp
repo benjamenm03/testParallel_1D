@@ -9,7 +9,10 @@
 // RUN COMMAND: mpirun -np 4 ./main
 
 int main(int argc, char **argv) {
+    // ********** Debug boolean to print testing statements **********
     bool debug = true;
+    // ***************************************************************
+
     MPI_Init(&argc, &argv); // Initialize MPI
 
     int nProcs, iProc; // Number of processors, processor rank
@@ -57,14 +60,19 @@ int main(int argc, char **argv) {
         print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:");
         print_data(iProc, temp_ref, "Local Temp Ref:");
         
+        // Testing det_owner() on a range of values with grid_copy
         std::map<double, double> owner_map = det_owner(iProc, grid_copy, 30, 60);
         print_data(iProc, owner_map, "grid_copy owner map for indices 30 through 60:");
 
+        // Testing det_owner() on a single index with temp_ref
         int temporary_owner = det_owner(iProc, temp_ref, 30);
         if (iProc == 0) {
             std::cout << "\nOwner of index 30 on temp_ref: " << temporary_owner << std::endl;
         }
     }
+
+    // Now sending and receiving is "easily" completed. Use det_owner() to find which processors need to communicate, then
+    // use MPI_Send() and MPI_Recv() to feed in the grids you want to exchange data on, along with the indices you want exchanged.
 
     MPI_Finalize(); // Finalize MPI
 }
