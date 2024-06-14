@@ -112,6 +112,55 @@ std::map<double, double> unpack_vector(std::vector<double> &packed_map) {
     return map;
 }
 
+// DET_OWNER (single index):
+// Determines the owner of a given index in a map of doubles
+int det_owner(int iProc, std::map<double, double> &map, double index) {
+    std::vector<int> owner_vector;
+    double value = -1;
+    if (map.count(index) > 0) {
+        value = map[index];
+    }
+    if (value != -1) {
+        owner_vector.push_back(iProc);
+    } else {
+        owner_vector.push_back(-1);
+    }
+    std::vector<int> global_owner_vector(owner_vector.size());
+    MPI_Allreduce(&owner_vector[0], &global_owner_vector[0], owner_vector.size(), MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    int max_owner = *std::max_element(global_owner_vector.begin(), global_owner_vector.end());
+    return max_owner;
+}
+
+// DET_OWNER (range of values):
+// Determines the owner of a range of values in a map of doubles
+std::map<double, double> det_owner(int iProc, std::map<double, double> &map, double start_index, double end_index) {
+    std::map<double, double> owner_map;
+    for (auto const &pair : map) {
+        if (pair.first >= start_index && pair.first <= end_index) {
+            if (pair.second == -1) {
+                owner_map[pair.first] = -1;
+            } else {
+                owner_map[pair.first] = iProc;
+            }
+        }
+    }
+    std::map<double, double> global_owner_map;
+    std::vector<double> local_keys;
+    std::vector<double> local_values;
+    for (const auto &pair : owner_map) {
+        local_keys.push_back(pair.first);
+        local_values.push_back(pair.second);
+    }
+    std::vector<double> global_keys(local_keys.size());
+    std::vector<double> global_values(local_values.size());
+    MPI_Allreduce(&local_keys[0], &global_keys[0], local_keys.size(), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&local_values[0], &global_values[0], local_values.size(), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    for (int i = 0; i < global_keys.size(); ++i) {
+        global_owner_map[global_keys[i]] = global_values[i];
+    }
+    return global_owner_map;
+}
+
 // PRINT_DATA (map<double, double>):
 // Prints out a map of doubles with a header
 void print_data(int iProc, std::map<double, double> &data, std::string header) {
@@ -124,12 +173,25 @@ void print_data(int iProc, std::map<double, double> &data, std::string header) {
 }
 
 // PRINT_DATA (vector<double>):
-// Prints out a vector of doubles with a header
+// Prints out a vector of doubles with a header in the format of "index: value".
+// This should only be used for printing vectors that are packed and have original
+// format of a map, or are intended to be seen as a map.
 void print_data(int iProc, std::vector<double> &data, std::string header) {
     if (iProc == 0) {
         std::cout << "\n" << header << std::endl;
         for (int i = 0; i < data.size(); i += 2) {
             std::cout << data[i] << ": " << data[i + 1] << std::endl;
+        }
+    }
+}
+
+// PRINT_VECTOR:
+// Prints a standard vector in csv format
+void print_vector(int iProc, std::vector<double> &data) {
+    if (iProc == 0) {
+        std::cout << "Print Vector: " << std::endl;
+        for (int i = 0; i < data.size(); i++) {
+            std::cout << data[i] << ", ";
         }
     }
 }
@@ -180,6 +242,9 @@ int main(int argc, char **argv) {
     print_data(iProc, global_grid_copy, "Global Grid Copy:");
     print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:");
     print_data(iProc, temp_ref, "Local Temp Ref:");
+    
+    std::map<double, double> owner_map = det_owner(iProc, grid_copy, 30, 60);
+    print_data(iProc, owner_map, "grid_copy owner map for indices 30 through 60:");
 
     MPI_Finalize(); // Finalize MPI
 }
