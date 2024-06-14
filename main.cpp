@@ -109,18 +109,24 @@ int findProc(map<double, double> *array, double xPos) {
 
 
 
-
+/// @brief retrieves data from another grid (MPI message passing)
+/// @param receive the map that contains information on what processor has what data for the grid that wants the data
+/// @param send the map that contains information on what processor has what data for the grid that needs to send the data
+/// @param grid the grid that needs to send the data
+/// @param iProc the rank of the processor that's executing the function
+/// @param xPos the x-position that we are interested in getting data to and from
+/// @param answer the data will be stored in this variable on the processor that wanted the data
+/// @return 
 int getValue(map<double, double> *receive, map<double, double> *send, map<double, double> *grid, 
               int iProc, double xPos, double *answer) {
     int rcv = findProc(receive, xPos);
     int snd = findProc(send, xPos);
 
     if (iProc == snd) {
-        int se = grid->at(xPos);
-        MPI_Send(&se, 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+        MPI_Send(&grid->at(xPos), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
     }
     else if (iProc == rcv) {
-        MPI_Recv(&answer, 1, MPI_DOUBLE, snd, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(answer, 1, MPI_DOUBLE, snd, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
     return rcv;
@@ -174,6 +180,7 @@ int main() {
     MPI_Barrier(MPI_COMM_WORLD);
     map<double, double> array1 = findLocations(&grid1, size1, start1, iProc);
     if (iProc == 0) {
+        cout << "\n-------------------- ARRAYS --------------------\n\n" << "ARRAY ONE" << endl;
         map<double, double>::iterator it = array1.begin();
         while (it != array1.end()) {
             cout << "x = " << it->first << ", value = " << it->second << endl;
@@ -185,12 +192,12 @@ int main() {
     // generates grid 2 (each processor handles a part of grid 2)
     map<double, double> grid2 = genArray(iProc, subSize, size2, start2, end2);
 
-    if (iProc == 0) cout << "\n-------------------- GRID TWO --------------------\n" << endl;
     // prints array for second grid 
     MPI_Barrier(MPI_COMM_WORLD);
     map<double, double> array2 = findLocations(&grid2, size2, start2, iProc);
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) {
+        cout << "\nARRAY TWO" << endl;
         map<double, double>::iterator it = array2.begin();
         while (it != array2.end()) {
             cout << "x = " << it->first << ", value = " << it->second << endl;
@@ -198,38 +205,52 @@ int main() {
         }
     }
 
-    if (iProc == 0) cout << "\n-------------------- testing --------------------\n" << endl;
 
+    if (iProc == 0) cout << "\n-------------------- GRIDS --------------------\n" << endl;
+
+    // prints out both grids 1 and 2
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) cout << "GRID ONE" << endl;
-    sleep(1);
+    sleep(0.5);
     printGrid(&array1, &grid1, iProc);
 
-    sleep(1);
+    sleep(0.5);
     if (iProc == 0) cout << endl;
 
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) cout << "GRID TWO" << endl;
-    sleep(1);
+    sleep(0.5);
     printGrid(&array2, &grid2, iProc);
 
-    sleep(1);
+    sleep(0.5);
     if (iProc == 0) {
-        cout << endl;
+        cout << "\n-------------------- testing --------------------\n" << endl;
         cout << "TEST SUM" << endl;
     }
 
 
     MPI_Barrier(MPI_COMM_WORLD);
+    sleep(0.5);
+
+
+    // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
+    double xPos = 3;
+    // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
+
+
+    // testing the message passing interface
     double test;
-    int val1 = findProc(&array1, 1);
-    int val2 = findProc(&array2, 1);
-    getValue(&array1, &array2, &grid2, iProc, 1, &test);
-    if (iProc == val1) {
-        cout << "val1 = " << val1 << endl;
-        cout << "val2 = " << val2 << endl;
-        cout << "test = " << test << endl;
+    int procReceive = findProc(&array1, xPos);
+    int procSend = findProc(&array2, xPos);
+    getValue(&array1, &array2, &grid2, iProc, xPos, &test);
+    if (iProc == procReceive) {
+        cout << "x-position = " << xPos << endl;
+        cout << "receiving processor = " << procReceive << endl;
+        cout << "sending processor = " << procSend << endl;
+        cout << "actual = " << test << endl;
     }
+    sleep(0.5);
+    if (iProc == procSend) cout << "expected = " << grid2.at(xPos) << endl;
 
     MPI_Finalize();
     return 0;
