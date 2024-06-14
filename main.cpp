@@ -9,6 +9,7 @@
 // RUN COMMAND: mpirun -np 4 ./main
 
 int main(int argc, char **argv) {
+    bool debug = true;
     MPI_Init(&argc, &argv); // Initialize MPI
 
     int nProcs, iProc; // Number of processors, processor rank
@@ -50,13 +51,20 @@ int main(int argc, char **argv) {
     MPI_Allreduce(&packed_grid_copy_ownership[0], &packed_global_grid_copy_ownership[0], packed_grid_copy_ownership.size(), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     std::map<double, double> global_grid_copy_ownership = unpack_vector(packed_global_grid_copy_ownership); // Unpack packed_global_grid_copy_ownership back into a map of doubles
 
-    // Print statements to read out the following data (print_data works with vector<double> and map<double, double>):
-    print_data(iProc, global_grid_copy, "Global Grid Copy:");
-    print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:");
-    print_data(iProc, temp_ref, "Local Temp Ref:");
-    
-    std::map<double, double> owner_map = det_owner(iProc, grid_copy, 30, 60);
-    print_data(iProc, owner_map, "grid_copy owner map for indices 30 through 60:");
+    if (debug == true) {
+        // Print statements to read out the following data (print_data works with vector<double> and map<double, double>):
+        print_data(iProc, global_grid_copy, "Global Grid Copy:");
+        print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:");
+        print_data(iProc, temp_ref, "Local Temp Ref:");
+        
+        std::map<double, double> owner_map = det_owner(iProc, grid_copy, 30, 60);
+        print_data(iProc, owner_map, "grid_copy owner map for indices 30 through 60:");
+
+        int temporary_owner = det_owner(iProc, temp_ref, 30);
+        if (iProc == 0) {
+            std::cout << "\nOwner of index 30 on temp_ref: " << temporary_owner << std::endl;
+        }
+    }
 
     MPI_Finalize(); // Finalize MPI
 }
