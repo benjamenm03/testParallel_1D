@@ -1,3 +1,7 @@
+// Author: Benjamen Miller, University of Michigan - Ann Arbor
+// Date: 06/14/2024
+// functions.cpp helper function file for testing one-dimensional examples of MPI programs for Aether
+
 #include "main.h"
 
 // GEN_GRID_REF:
