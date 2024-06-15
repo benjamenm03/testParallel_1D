@@ -102,9 +102,9 @@ std::map<double, double> unpack_vector(std::vector<double> &packed_map) {
     return map;
 }
 
-// DET_OWNER (single index):
+// GET_OWNER (single index):
 // Determines the owner of a given index in a map of doubles
-int det_owner(int iProc, std::map<double, double> &map, double index) {
+int get_owner(int iProc, std::map<double, double> &map, double index) {
     std::vector<int> owner_vector;
     double value = -1;
     if (map.count(index) > 0) {
@@ -121,9 +121,9 @@ int det_owner(int iProc, std::map<double, double> &map, double index) {
     return max_owner;
 }
 
-// DET_OWNER (range of values):
+// GET_OWNER (range of values):
 // Determines the owner of a range of values in a map of doubles
-std::map<double, double> det_owner(int iProc, std::map<double, double> &map, double start_index, double end_index) {
+std::map<double, double> get_owner(int iProc, std::map<double, double> &map, double start_index, double end_index) {
     std::map<double, double> owner_map;
     for (auto const &pair : map) {
         if (pair.first >= start_index && pair.first <= end_index) {
@@ -153,8 +153,10 @@ std::map<double, double> det_owner(int iProc, std::map<double, double> &map, dou
 
 // PRINT_DATA (map<double, double>):
 // Prints out a map of doubles with a header
-void print_data(int iProc, std::map<double, double> &data, std::string header) {
-    if (iProc == 0) {
+// WARNING: This is intended to be used for "local" maps. Use this to read out data stored on a processor.
+// If you want to read out data that is stored across multiple processors, use MPI_Allreduce() first.
+void print_data(int iProc, std::map<double, double> &data, std::string header, int which_proc) {
+    if (iProc == which_proc) {
         std::cout << "\n" << header << std::endl;
         for (const auto& pair : data) {
             std::cout << pair.first << ": " << pair.second << std::endl;
@@ -186,28 +188,49 @@ void print_vector(int iProc, std::vector<double> &data) {
     }
 }
 
-// ******************************* THIS DOESN'T WORK YET *******************************
 // TRANSFER_DATA (single index):
 // Transfers a single index from one map to another
 void transfer_data(int iProc, std::map<double, double> &source_map, std::map<double, double> &dest_map, double index) {
     if ((source_map.find(index) != source_map.end()) && (dest_map.find(index) != dest_map.end())) {
-        int source_owner = det_owner(iProc, source_map, index);
-        int dest_owner = det_owner(iProc, dest_map, index);
+        int source_owner = get_owner(iProc, source_map, index);
+        int dest_owner = get_owner(iProc, dest_map, index);
+
         if (source_owner == iProc && dest_owner == iProc) {
             dest_map[index] = source_map[index];
-        } else {
-            MPI_Send(&source_map[index], 1, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
-            MPI_Recv(&dest_map[index], 1, MPI_DOUBLE, source_owner, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            std::cout << "Processor " << iProc << " owns both the source and destination index. Copying data..." << std::endl;
+
+        } else if (source_owner == iProc && dest_owner != iProc) {
+            std::vector<double> packed_map = pack_map(source_map, index);
+            MPI_Send(&packed_map[0], 1, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
+            std::cout << "Processor " << iProc << " sent data to processor " << dest_owner << std::endl;
+
+        } else if (source_owner != iProc && dest_owner == iProc) {
+            std::vector<double> packed_map(1);
+            MPI_Recv(&packed_map[0], 1, MPI_DOUBLE, source_owner, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            dest_map[index] = packed_map[0];
+            std::cout << "Processor " << iProc << " received data from processor " << source_owner << std::endl;
+
+        } else if (source_owner != iProc && dest_owner != iProc) {
+            std::cout << "Processor " << iProc << " does not own the source or destination index. Skipping..." << std::endl;
+
         }
+
+    // ********************* NEED TO IMPLEMENT HANDLING OF INDICES NOT FOUND (EXTRAPOLATION) *********************
     } else if ((source_map.find(index) == source_map.end()) && (dest_map.find(index) != dest_map.end())) {
-
-        int dest_owner = det_owner(iProc, dest_map, index);
-        std::cout << "WARNING: Source map does not contain index: " << index << std::endl;
-        std::cout << "Extrapolating data from neighboring indices..." << std::endl;
-
-
+        if (iProc == 0) {
+            std::cout << "Error: Source map does not contain index: " << index << std::endl;
+        }
     } else if ((source_map.find(index) != source_map.end()) && (dest_map.find(index) == dest_map.end())) {
-        std::cout << "Error: Destination map does not contain index: " << index << std::endl;
+        if (iProc == 0) {
+            std::cout << "Error: Destination map does not contain index: " << index << std::endl;
+        }
+    // ***********************************************************************************************************
+    } else {
+        if (iProc == 0) {
+            std::cout << "Error: Neither source nor destination map contain index: " << index << std::endl;
+        }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 }
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ THIS DOESN'T WORK YET ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+// *********** COULD IMPLEMENT A TRANSFER_DATA (RANGE OF VALUES) FUNCTION TO TRANSFER MULTIPLE INDICES ***********

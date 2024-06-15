@@ -10,7 +10,8 @@
 
 int main(int argc, char **argv) {
     // ********** Debug boolean to print testing statements **********
-    bool debug = true;
+    bool debug_general = false;
+    bool debug_print_transfer = true;
     // ***************************************************************
 
     MPI_Init(&argc, &argv); // Initialize MPI
@@ -54,21 +55,45 @@ int main(int argc, char **argv) {
     MPI_Allreduce(&packed_grid_copy_ownership[0], &packed_global_grid_copy_ownership[0], packed_grid_copy_ownership.size(), MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     std::map<double, double> global_grid_copy_ownership = unpack_vector(packed_global_grid_copy_ownership); // Unpack packed_global_grid_copy_ownership back into a map of doubles
 
-    if (debug == true) {
+    if (debug_general == true) {
         // Print statements to read out the following data (print_data works with vector<double> and map<double, double>):
-        print_data(iProc, global_grid_copy, "Global Grid Copy:");
-        print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:");
-        print_data(iProc, temp_ref, "Local Temp Ref:");
+        print_data(iProc, global_grid_copy, "Global Grid Copy:", 0);
+        print_data(iProc, global_grid_copy_ownership, "Global Grid Copy Ownership:", 0);
+        print_data(iProc, temp_ref, "Local Temp Ref:", 0);
         
-        // Testing det_owner() on a range of values with grid_copy
-        std::map<double, double> owner_map = det_owner(iProc, grid_copy, 30, 60);
-        print_data(iProc, owner_map, "grid_copy owner map for indices 30 through 60:");
+        // Testing get_owner() on a range of values with grid_copy
+        std::map<double, double> owner_map = get_owner(iProc, grid_copy, 30, 60);
+        print_data(iProc, owner_map, "grid_copy owner map for indices 30 through 60:", 0);
 
-        // Testing det_owner() on a single index with temp_ref
-        int temporary_owner = det_owner(iProc, temp_ref, 30);
+        // Testing get_owner() on a single index with temp_ref
+        int temporary_owner = get_owner(iProc, temp_ref, 60);
         if (iProc == 0) {
-            std::cout << "\nOwner of index 30 on temp_ref: " << temporary_owner << std::endl;
+            std::cout << "\nOwner of index 60 on temp_ref: " << temporary_owner << std::endl;
         }
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
+
+    double index = 90; // Index to transfer
+    int source_owner = get_owner(iProc, grid_copy, index);
+    int dest_owner = get_owner(iProc, temp_ref, index);
+
+    if(debug_print_transfer == true) {
+        print_data(iProc, grid_copy, "Local Grid Copy:", source_owner);
+        MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
+        print_data(iProc, temp_ref, "Local Temp Ref:", dest_owner);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
+
+    transfer_data(iProc, grid_copy, temp_ref, index);
+
+    MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
+
+    if (debug_print_transfer == true) {
+        print_data(iProc, grid_copy, "Local Grid Copy:", source_owner);
+        MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
+        print_data(iProc, temp_ref, "Local Temp Ref:", dest_owner);
     }
 
     MPI_Finalize(); // Finalize MPI

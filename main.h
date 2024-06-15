@@ -38,19 +38,21 @@ std::map<double, double> unpack_vector(std::vector<double> &packed_map);
 
 // DET_OWNER (single index):
 // Determines the owner of a given index in a map of doubles
-int det_owner(int iProc, std::map<double, double> &map, double index);
+int get_owner(int iProc, std::map<double, double> &map, double index);
 
 // DET_OWNER (range of values):
 // Determines the owner of a range of values in a map of doubles
-std::map<double, double> det_owner(int iProc, std::map<double, double> &map, double start_index, double end_index);
+std::map<double, double> get_owner(int iProc, std::map<double, double> &map, double start_index, double end_index);
 
 // PRINT_DATA (map<double, double>):
 // Prints out a map of doubles with a header
-void print_data(int iProc, std::map<double, double> &data, std::string header);
+// WARNING: This is intended to be used for "local" maps. Use this to read out data stored on a processor.
+// If you want to read out data that is stored across multiple processors, use MPI_Allreduce() first.
+void print_data(int iProc, std::map<double, double> &data, std::string header, int which_proc);
 
 // PRINT_DATA (vector<double>):
 // Prints out a vector of doubles with a header in the format of "index: value".
-// This should only be used for printing vectors that are packed and have original
+// WARNING: This should only be used for printing vectors that are packed and have original
 // format of a map, or are intended to be seen as a map.
 void print_data(int iProc, std::vector<double> &data, std::string header);
 
@@ -58,10 +60,12 @@ void print_data(int iProc, std::vector<double> &data, std::string header);
 // Prints a standard vector in csv format
 void print_vector(int iProc, std::vector<double> &data);
 
-// ******************************* THIS DOESN'T WORK YET *******************************
+// ********************* NEED TO IMPLEMENT HANDLING OF INDICES NOT FOUND (EXTRAPOLATION) *********************
 // TRANSFER_DATA (single index):
 // Transfers a single index from one map to another
 void transfer_data(int iProc, std::map<double, double> &source_map, std::map<double, double> &dest_map, double index);
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ THIS DOESN'T WORK YET ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// ***********************************************************************************************************
+
+// *********** COULD IMPLEMENT A TRANSFER_DATA (RANGE OF VALUES) FUNCTION TO TRANSFER MULTIPLE INDICES ***********
 
 #endif
