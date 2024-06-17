@@ -19,7 +19,7 @@ using namespace std;
 /// @param start the starting x-value of the grid
 /// @param end the ending x-value of the grid
 /// @return returns the map
-map<double, double> genArray(int iProc, int subSize, int size, int start, int end) {
+map<double, double> genArray(int iProc, int subSize, int size, int start, int end, int begin, int finish) {
     // pair<location on the x-axis, value>
     map<double, double> grid;
 
@@ -27,7 +27,7 @@ map<double, double> genArray(int iProc, int subSize, int size, int start, int en
     // each processor only fills their part of the grid
     // rand() % (upper - lower + 1) + lower
     for (int i = start + (iProc * subSize); i < start + (iProc * subSize + subSize) && i < start + size; ++i) {
-        grid[i] = random() % (end - start + 1) + start;
+        grid[i] = random() % (begin - finish + 1) + begin;
     }
 
     return grid;
@@ -148,14 +148,18 @@ int main() {
     int nProcs, iProc;
     bool did_work;
 
+    // SET THE BOUNDS FOR THE DATA
+    int begin = -1000;
+    int finish = 1000;
+
     // SET THE SIZE OF grid 1
-    int start1 = -2;
-    int end1 = 5;
+    int start1 = -25;
+    int end1 = 74;
     int size1 = end1 - start1 + 1;
 
     // SET THE SIZE OF grid 2
-    int start2 = 1;
-    int end2 = 8;
+    int start2 = -50;
+    int end2 = 49;
     int size2 = end2 - start2 + 1;
 
     MPI_Init(NULL, NULL);
@@ -173,7 +177,7 @@ int main() {
 
 
     // generates grid 1 (each processor handles a part of grid 1)
-    map<double, double> grid1 = genArray(iProc, subSize, size1, start1, end1);
+    map<double, double> grid1 = genArray(iProc, subSize, size1, start1, end1, begin, finish);
 
     // finds what processor handles what part of the grid and stores it in array
     // prints array
@@ -190,7 +194,7 @@ int main() {
 
 
     // generates grid 2 (each processor handles a part of grid 2)
-    map<double, double> grid2 = genArray(iProc, subSize, size2, start2, end2);
+    map<double, double> grid2 = genArray(iProc, subSize, size2, start2, end2, begin, finish);
 
     // prints array for second grid 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -222,10 +226,10 @@ int main() {
     sleep(0.5);
     printGrid(&array2, &grid2, iProc);
 
-    sleep(0.5);
+    sleep(0.75);
     if (iProc == 0) {
         cout << "\n-------------------- testing --------------------\n" << endl;
-        cout << "TEST SUM" << endl;
+        cout << "TEST getValue()" << endl;
     }
 
 
@@ -234,7 +238,7 @@ int main() {
 
 
     // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
-    double xPos = 3;
+    double xPos = -23;
     // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
 
 
@@ -251,6 +255,19 @@ int main() {
     }
     sleep(0.5);
     if (iProc == procSend) cout << "expected = " << grid2.at(xPos) << endl;
+
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    getValue(&array2, &array1, &grid1, iProc, xPos, &test);
+    if (iProc == procSend) {
+        cout << "\nTEST 2 getValue()" << endl;
+        cout << "x-position = " << xPos << endl;
+        cout << "receiving processor = " << procReceive << endl;
+        cout << "sending processor = " << procSend << endl;
+        cout << "actual = " << test << endl;
+    }
+    sleep(0.5);
+    if (iProc == procReceive) cout << "expected = " << grid1.at(xPos) << endl;
 
     MPI_Finalize();
     return 0;
