@@ -215,7 +215,7 @@ void transfer_data(int iProc, std::map<double, double> &source_map, std::map<dou
 
         }
 
-    // ********************* NEED TO IMPLEMENT HANDLING OF INDICES NOT FOUND (EXTRAPOLATION) *********************
+    // ********************* NEED TO IMPLEMENT HANDLING OF INDICES NOT FOUND (INTERPOLATION) *********************
     } else if ((source_map.find(index) == source_map.end()) && (dest_map.find(index) != dest_map.end())) {
         if (iProc == 0) {
             std::cout << "Error: Source map does not contain index: " << index << std::endl;
@@ -234,3 +234,4 @@ void transfer_data(int iProc, std::map<double, double> &source_map, std::map<dou
 }
 
 // *********** COULD IMPLEMENT A TRANSFER_DATA (RANGE OF VALUES) FUNCTION TO TRANSFER MULTIPLE INDICES ***********
+// ...helper functions to do this are already implemented, just need to overload transfer_data() for ranges
