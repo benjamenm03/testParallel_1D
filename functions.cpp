@@ -153,6 +153,22 @@ std::map<double, double> get_owner(int iProc, std::map<double, double> &map, dou
     return global_owner_map;
 }
 
+std::pair<double, double> find_nearest_indices(std::map<double, double> &map, double index) {
+    double nearest_below = -1;
+    double nearest_above = -1;
+    for (auto const &pair : map) {
+        if (pair.first < index) {
+            nearest_below = pair.first;
+        } else if (pair.first > index) {
+            nearest_above = pair.first;
+            break;
+        }
+    }
+
+    std::pair<double, double> nearest_indices = std::make_pair(nearest_below, nearest_above);
+    return nearest_indices;
+}
+
 // PRINT_DATA (map<double, double>):
 // Prints out a map of doubles with a header
 // WARNING: This is intended to be used for "local" maps. Use this to read out data stored on a processor.
@@ -192,36 +208,128 @@ void print_vector(int iProc, std::vector<double> &data) {
 
 // TRANSFER_DATA (single index):
 // Transfers a single index from one map to another
+// Handles all cases of ownership and interpolation (that I can think of). Each if-branch describes what it's catching.
+// Does not handle extrapolation for points lying outside the range of the source map.
 void transfer_data(int iProc, std::map<double, double> &source_map, std::map<double, double> &dest_map, double index) {
+    // Both maps contain the index
     if ((source_map.find(index) != source_map.end()) && (dest_map.find(index) != dest_map.end())) {
         int source_owner = get_owner(iProc, source_map, index);
         int dest_owner = get_owner(iProc, dest_map, index);
 
+        // Source and destination are owned by current processor
+        // Copy data from source to destination without MPI
         if (source_owner == iProc && dest_owner == iProc) {
             dest_map[index] = source_map[index];
             std::cout << "Processor " << iProc << " owns both the source and destination index. Copying data..." << std::endl;
 
+        // Source is owned by current processor, destination is owned by another processor
+        // Use MPI_Send to move data
         } else if (source_owner == iProc && dest_owner != iProc) {
-            std::vector<double> packed_map = pack_map(source_map, index);
+            std::vector<double> packed_map(1);
+            packed_map[0] = source_map[index];
             MPI_Send(&packed_map[0], 1, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
             std::cout << "Processor " << iProc << " sent data to processor " << dest_owner << std::endl;
 
+        // Source is owned by another processor, destination is owned by current processor
+        // Use MPI_Recv to receive data
         } else if (source_owner != iProc && dest_owner == iProc) {
             std::vector<double> packed_map(1);
             MPI_Recv(&packed_map[0], 1, MPI_DOUBLE, source_owner, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             dest_map[index] = packed_map[0];
             std::cout << "Processor " << iProc << " received data from processor " << source_owner << std::endl;
 
+        // Source and destination are owned by different processors
+        // The current processor doesn't need to do anything!
         } else if (source_owner != iProc && dest_owner != iProc) {
             std::cout << "Processor " << iProc << " does not own the source or destination index. Skipping..." << std::endl;
 
         }
 
-    // ********************* NEED TO IMPLEMENT HANDLING OF INDICES NOT FOUND (INTERPOLATION) *********************
+    // The index being transferred exists on the destination map, but not on the source map.
+    // This needs interpolation!!
     } else if ((source_map.find(index) == source_map.end()) && (dest_map.find(index) != dest_map.end())) {
-        if (iProc == 0) {
-            std::cout << "Error: Source map does not contain index: " << index << std::endl;
+
+        // Calculates the nearest indices to the index being transferred on the source map
+        std::pair<double, double> nearest_indices = find_nearest_indices(source_map, index);
+        double lower_index = nearest_indices.first;
+        double upper_index = nearest_indices.second;
+        
+        // Finds the owners of these nearest indices
+        int source_owner_lower = get_owner(iProc, source_map, lower_index);
+        int source_owner_upper = get_owner(iProc, source_map, upper_index);
+
+        // Determines the owner of the destination index
+        int dest_owner = get_owner(iProc, dest_map, index);
+
+        // Calculates the interpolation coefficient
+        double dist_lower = abs(lower_index - index);
+        double dist_range = abs(upper_index - lower_index);
+        double interpolation_coef = dist_lower / dist_range;
+
+        // Current processor owns everything (source range and destination index)
+        // Simple interpolation can be done without the use of MPI
+        if (source_owner_lower == iProc && source_owner_upper == iProc && dest_owner == iProc) {
+            dest_map[index] = source_map[lower_index] + interpolation_coef * (source_map[upper_index] - source_map[lower_index]);
+            std::cout << "Processor " << iProc << " owns both the destination and the source range. Interpolating data..." << std::endl;
+
+        // Current processor owns the source range but not the destination index
+        // Uses MPI_Send to transfer data for destination processor to perform interpolation
+        } else if (source_owner_lower == iProc && source_owner_upper == iProc && dest_owner != iProc) {
+            std::vector<double> packed_data(2);
+            packed_data[0] = source_map[lower_index];
+            packed_data[1] = source_map[upper_index];
+            MPI_Send(&packed_data[0], 2, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
+            std::cout << "Processor " << iProc << " owns the source range. Sending data to processor " << dest_owner << std::endl;
+
+        // Current processor owns the source lower index and destination index
+        // Uses MPI_Recv to receive missing upper index data from source owner, and performs interpolation
+        } else if (source_owner_lower == iProc && source_owner_upper != iProc && dest_owner == iProc) {
+            std::vector<double> packed_data(1);
+            MPI_Recv(&packed_data[0], 1, MPI_DOUBLE, source_owner_upper, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            dest_map[index] = source_map[lower_index] + interpolation_coef * (packed_data[0] - source_map[lower_index]);
+            std::cout << "Processor " << iProc << " owns the destination index and lower source index. Receiving data from processor " << source_owner_upper << " and interpolating..." << std::endl;
+
+        // Current processor owns the source upper index and destination index
+        // Uses MPI_Recv to receive missing lower index data from source owner, and performs interpolation
+        } else if (source_owner_lower != iProc && source_owner_upper == iProc && dest_owner == iProc) {
+            std::vector<double> packed_data(1);
+            MPI_Recv(&packed_data[0], 1, MPI_DOUBLE, source_owner_lower, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            dest_map[index] = packed_data[0] + interpolation_coef * (source_map[upper_index] - packed_data[0]);
+            std::cout << "Processor " << iProc << " owns the destination index and upper source index. Receiving data from processor " << source_owner_lower << " and interpolating..." << std::endl;
+
+        // Current processor owns the destination index but not the source range
+        // Uses MPI_Recv to receive missing source data from source owner, and performs interpolation
+        } else if (source_owner_lower != iProc && source_owner_upper != iProc && dest_owner == iProc) {
+            std::vector<double> packed_data(2);
+            MPI_Recv(&packed_data[0], 2, MPI_DOUBLE, source_owner_lower, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            dest_map[index] = packed_data[0] + interpolation_coef * (packed_data[1] - packed_data[0]);
+            std::cout << "Processor " << iProc << " owns the destination index. Receiving data from processors " << source_owner_lower << " and " << source_owner_upper << " and interpolating..." << std::endl;
+
+        // Current processor owns the lower source index, but not the upper source index or destination index
+        // Uses MPI_Send to send lower index data to destination owner for it to perform interpolation
+        } else if (source_owner_lower == iProc && source_owner_upper != iProc && dest_owner != iProc) {
+            std::vector<double> packed_data(1);
+            packed_data[0] = source_map[lower_index];
+            MPI_Send(&packed_data[0], 1, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
+            std::cout << "Processor " << iProc << " owns the lower source index. Sending data to processor " << dest_owner << std::endl;
+
+        // Current processor owns the upper source index, but not the lower source index or destination index
+        // Uses MPI_Send to send upper index data to destination owner for it to perform interpolation
+        } else if (source_owner_lower != iProc && source_owner_upper == iProc && dest_owner != iProc) {
+            std::vector<double> packed_data(1);
+            packed_data[0] = source_map[upper_index];
+            MPI_Send(&packed_data[0], 1, MPI_DOUBLE, dest_owner, 0, MPI_COMM_WORLD);
+            std::cout << "Processor " << iProc << " owns the upper source index. Sending data to processor " << dest_owner << std::endl;
+
+        // Current processor does not own the source range or destination index
+        // This processor doesn't need to do anything!
+        } else if (source_owner_lower != iProc && source_owner_upper != iProc && dest_owner != iProc) {
+            std::cout << "Processor " << iProc << " does not own the source or destination index. Skipping..." << std::endl;
+
         }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+
     } else if ((source_map.find(index) != source_map.end()) && (dest_map.find(index) == dest_map.end())) {
         if (iProc == 0) {
             std::cout << "Error: Destination map does not contain index: " << index << std::endl;

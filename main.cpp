@@ -74,27 +74,29 @@ int main(int argc, char **argv) {
 
     MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
 
-    double index = 90; // Index to transfer
-    int source_owner = get_owner(iProc, grid_copy, index);
-    int dest_owner = get_owner(iProc, temp_ref, index);
+    // *********** Testing transfer_data() on a single index from temp_ref to grid_copy ***********
+    double index = 25; // Index to transfer
+    int source_owner = get_owner(iProc, temp_ref, 25);
+    int dest_owner = get_owner(iProc, grid_copy, index);
 
     if(debug_print_transfer == true) {
-        print_data(iProc, grid_copy, "Local Grid Copy:", source_owner);
+        print_data(iProc, grid_copy, "Local Grid Copy:", dest_owner);
         MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
-        print_data(iProc, temp_ref, "Local Temp Ref:", dest_owner);
+        print_data(iProc, temp_ref, "Local Temp Ref:", source_owner);
     }
 
     MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
 
-    transfer_data(iProc, grid_copy, temp_ref, index);
+    transfer_data(iProc, temp_ref, grid_copy, index);
 
     MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
 
     if (debug_print_transfer == true) {
-        print_data(iProc, grid_copy, "Local Grid Copy:", source_owner);
+        print_data(iProc, grid_copy, "Local Grid Copy:", dest_owner);
         MPI_Barrier(MPI_COMM_WORLD); // Synchronize all processors
-        print_data(iProc, temp_ref, "Local Temp Ref:", dest_owner);
+        print_data(iProc, temp_ref, "Local Temp Ref:", source_owner);
     }
+    // *********************************************************************************************
 
     MPI_Finalize(); // Finalize MPI
 }
