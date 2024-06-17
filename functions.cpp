@@ -6,7 +6,8 @@
 
 // GEN_GRID_REF:
 // Modifies grid_ref (map of doubles) to be a simple single-dimensional grid of points with a logically increasing format
-// within a specified range. Each processor is assigned a chunk of grid_ref to own.
+// within a specified range. Each processor is assigned a chunk of grid_ref to own. Returns a map of ownership, but this
+// IS NOT currently being used since get_owner() is utilized instead, which is more effective.
 std::map<double, double> gen_grid_ref(int iProc, int nProcs, std::map<double, double> &grid_ref, double start_index, double end_index, int nPts) {
     std::map<double, double> local_ownership_map; // Local ownership map
     int total_length = nPts; // Total number of points in grid_ref
@@ -34,7 +35,8 @@ std::map<double, double> gen_grid_ref(int iProc, int nProcs, std::map<double, do
 
 // GEN_TEMP_REF:
 // Modifies temp_ref (map of doubles) to be a simple single-dimensional grid of points with a sinusoidal temperature
-// based on the grid_ref. Each processor is assigned a chunk of temp_ref to own.
+// based on the grid_ref. Each processor is assigned a chunk of temp_ref to own. Returns a map of ownership, but this
+// IS NOT currently being used since get_owner() is utilized instead, which is more effective.
 std::map<double, double> gen_temp_ref(int iProc, int nProcs, std::map<double, double> &grid_ref, std::map<double, double> &temp_ref) {
     std::map<double, double> local_ownership_map; // Local ownership map
     int total_length = grid_ref.size(); // Total number of points in temp_ref
