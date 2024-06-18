@@ -13,13 +13,13 @@ int main() {
     int finish = 1000;
 
     // SET THE SIZE OF grid 1
-    int start1 = -25;
-    int end1 = 74;
+    int start1 = -5;
+    int end1 = 6;
     int size1 = end1 - start1 + 1;
 
     // SET THE SIZE OF grid 2
-    int start2 = -50;
-    int end2 = 49;
+    int start2 = 0;
+    int end2 = 3;
     int size2 = end2 - start2 + 1;
 
     MPI_Init(NULL, NULL);
@@ -88,7 +88,7 @@ int main() {
 
     sleep(0.75);
     if (iProc == 0) {
-        cout << "\n-------------------- testing --------------------\n" << endl;
+        cout << "\n-------------------- testing message passing --------------------\n" << endl;
         cout << "TEST getValue()" << endl;
     }
 
@@ -98,7 +98,7 @@ int main() {
 
 
     // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
-    double xPos = -23;
+    double xPos = 1;
     // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
 
 
@@ -128,6 +128,18 @@ int main() {
     }
     sleep(0.5);
     if (iProc == procReceive) cout << "expected = " << grid1.at(xPos) << endl;
+
+
+    
+    map<double, double> testCoeff = findCoeff(&array1, &array2, iProc);
+    if (iProc == 0) {
+        cout << "\n-------------------- testing coefficient --------------------\n" << endl;
+        map<double, double>::iterator it = testCoeff.begin();
+        while (it != testCoeff.end()) {
+            cout << "x = " << it->first << ", coeff = " << it->second << endl;
+            ++it;
+        }
+    }
 
     MPI_Finalize();
     return 0;

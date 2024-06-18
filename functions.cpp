@@ -131,8 +131,55 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
 
 
 
+// The coefficient is always with respect to the point that is smaller than the point we're interested in
+// ex: x = 2, x = 3. If we want to find x = 2.4, then coeff = 40
 
-map<double, double> getCoeff(map<double, double> *receive, map<double, double> *get) {
+/// @brief find the coefficient for the receive grid with respect to the get grid
+/// @param receive the ownership map for the grid we want to get coefficients for (that way we have access to all indices)
+/// @param get the ownership map that we are using to calculate the coefficients
+/// @param iProc the current processor that is running the program
+/// @return returns the coefficient map
+map<double, double> findCoeff(map<double, double> *receive, map<double, double> *get, int iProc) {
+    int size = receive->size();
+    vector<double> coeff (size, -1);
 
+    map<double, double>::iterator it = receive->begin();
+    int start = it->first;
+    int i = 0;
+    while (it != receive->end() && it->first < get->rbegin()->first) {
+        map<double, double>::iterator upper;
+        upper = get->lower_bound(it->first);
+
+        if (it->first < get->begin()->first) {
+            ++i;
+            ++it;
+        }
+
+        else if (upper->first == it->first) {
+            coeff[i] = 0;
+            ++i;
+            ++it;
+        }
+
+        else if (upper != get->end()) {
+            map<double, double>::iterator lower;
+            lower = upper;
+            --lower;
+
+            double remainder = it->first - lower->first;
+            double interval = upper->first - lower->first;
+            coeff[i] = remainder / interval;
+            ++i;
+            ++it;
+        }
+    }
+
+    map<double, double> answer;
+    for (int i = 0; i < size; ++i) {
+        answer[i + start] = coeff[i];
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    return answer;
 }
 
