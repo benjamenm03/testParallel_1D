@@ -14,13 +14,15 @@ int main() {
 
     // SET THE SIZE OF grid 1
     int start1 = -5;
-    int end1 = 6;
-    int size1 = end1 - start1 + 1;
+    int end1 = 7;
+    double interval1 = 0.25;
+    int size1 = abs(end1 - start1);
 
     // SET THE SIZE OF grid 2
-    int start2 = 0;
-    int end2 = 3;
-    int size2 = end2 - start2 + 1;
+    int start2 = -1;
+    int end2 = 7;
+    double interval2 = 1;
+    int size2 = abs(end2 - start2);
 
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
@@ -31,18 +33,21 @@ int main() {
     srand(seed);
 
     // calculates what processor takes care of how much of the array
-    int subSize = size1 / nProcs;
-    if (size1 % nProcs != 0) ++subSize;
+    int subSize1 = size1 / nProcs;
+    if (size1 % nProcs != 0) ++subSize1;
 
+    int subSize2 = size2 / nProcs;
+    if (size2 % nProcs != 0) ++subSize2;
 
 
     // generates grid 1 (each processor handles a part of grid 1)
-    map<double, double> grid1 = genArray(iProc, subSize, size1, start1, end1, begin, finish);
+    map<double, double> grid1 = genArray(iProc, subSize1, size1, interval1, start1, end1, begin, finish);
+
 
     // finds what processor handles what part of the grid and stores it in array
     // prints array
     MPI_Barrier(MPI_COMM_WORLD);
-    map<double, double> array1 = findLocations(&grid1, size1, start1, iProc);
+    map<double, double> array1 = findLocations(&grid1, size1, interval1, start1, iProc);
     if (iProc == 0) {
         cout << "\n-------------------- ARRAYS --------------------\n\n" << "ARRAY ONE" << endl;
         map<double, double>::iterator it = array1.begin();
@@ -51,14 +56,15 @@ int main() {
             ++it;
         }
     }
-
+    
+    
 
     // generates grid 2 (each processor handles a part of grid 2)
-    map<double, double> grid2 = genArray(iProc, subSize, size2, start2, end2, begin, finish);
+    map<double, double> grid2 = genArray(iProc, subSize2, size2, interval2, start2, end2, begin, finish);
 
     // prints array for second grid 
     MPI_Barrier(MPI_COMM_WORLD);
-    map<double, double> array2 = findLocations(&grid2, size2, start2, iProc);
+    map<double, double> array2 = findLocations(&grid2, size2, interval2, start2, iProc);
     MPI_Barrier(MPI_COMM_WORLD);
     if (iProc == 0) {
         cout << "\nARRAY TWO" << endl;
@@ -74,9 +80,14 @@ int main() {
 
     // prints out both grids 1 and 2
     MPI_Barrier(MPI_COMM_WORLD);
+
+    
+    
     if (iProc == 0) cout << "GRID ONE" << endl;
     sleep(0.5);
     printGrid(&array1, &grid1, iProc);
+
+    
 
     sleep(0.5);
     if (iProc == 0) cout << endl;
@@ -131,7 +142,7 @@ int main() {
 
 
     
-    map<double, double> testCoeff = findCoeff(&array1, &array2, iProc);
+    map<double, double> testCoeff = findCoeff(&array1, &array2, interval1);
     if (iProc == 0) {
         cout << "\n-------------------- testing coefficient --------------------\n" << endl;
         map<double, double>::iterator it = testCoeff.begin();
@@ -140,6 +151,8 @@ int main() {
             ++it;
         }
     }
+
+    
 
     MPI_Finalize();
     return 0;

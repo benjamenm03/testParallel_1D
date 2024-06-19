@@ -16,14 +16,14 @@ using namespace std;
 /// @param start the starting x-value of the grid
 /// @param end the ending x-value of the grid
 /// @return returns the map
-map<double, double> genArray(int iProc, int subSize, int size, int start, int end, int begin, int finish) {
+map<double, double> genArray(int iProc, int subSize, int size, double interval, int start, int end, int begin, int finish) {
     // pair<location on the x-axis, value>
     map<double, double> grid;
 
     // fills the grid with random numbers
     // each processor only fills their part of the grid
     // rand() % (upper - lower + 1) + lower
-    for (int i = start + (iProc * subSize); i < start + (iProc * subSize + subSize) && i < start + size; ++i) {
+    for (double i = start + (iProc * subSize); i < start + (iProc * subSize + subSize) && i < start + size; i += interval) {
         grid[i] = random() % (begin - finish + 1) + begin;
     }
 
@@ -39,20 +39,23 @@ map<double, double> genArray(int iProc, int subSize, int size, int start, int en
 /// @param start the starting x-value of the grid
 /// @param iProc the processor's rank that's calling the function
 /// @return a map that contains information about what processor knows what
-map<double, double> findLocations(map<double, double> *grid, int size, int start, int iProc) {
+map<double, double> findLocations(map<double, double> *grid, int size, double interval, int start, int iProc) {
     // initialize a vector with the size of the whole grid filled with -1's
-    vector<double> array (size, -1);
+    vector<double> array (size / interval, -1);
 
     // this vector will be the result after combining all arrays from all processors
-    vector<double> globalArray (size, -1);
+    vector<double> globalArray (size / interval, -1);
 
     // fills in the vector with iProc if the local processor is responsible for that region of the grid
     // the rest of the grid is still filled with -1's
+
+    // THIS PART IS WRONG - VECTORS CANNOT HAVE INTERVALS OTHER THAN 1
     map<double, double>::iterator it = grid->begin();
     while (it != grid->end()) {
-        array[it->first - start] = iProc;
+        array[abs(it->first - start) / interval] = iProc;
         ++it;
     }
+    
 
     // Combines all of the vectors that we just created and find the maximum values at every index across all vectors
     // and put that max value into globalArray (this will get rid of the -1's and replace it with the correct 
@@ -62,8 +65,10 @@ map<double, double> findLocations(map<double, double> *grid, int size, int start
 
     // turns the vector back into a map so that we have the right x values
     map<double, double> answer;
-    for (int i = 0; i < globalArray.size(); ++i) {
-        answer[i + start] = globalArray[i];
+    vector<double>::iterator it2 = globalArray.begin();
+    for (double i = start; i < start + size; i += interval) {
+        answer[i] = *it2;
+        ++it2;
     }
 
     return answer;
@@ -113,7 +118,7 @@ int findProc(map<double, double> *array, double xPos) {
 /// @param iProc the rank of the processor that's executing the function
 /// @param xPos the x-position that we are interested in getting data to and from
 /// @param answer the data will be stored in this variable on the processor that wanted the data
-/// @return 
+/// @return the rank of the processor that has received the data
 int getValue(map<double, double> *receive, map<double, double> *send, map<double, double> *grid, 
               int iProc, double xPos, double *answer) {
     int rcv = findProc(receive, xPos);
@@ -139,47 +144,40 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
 /// @param get the ownership map that we are using to calculate the coefficients
 /// @param iProc the current processor that is running the program
 /// @return returns the coefficient map
-map<double, double> findCoeff(map<double, double> *receive, map<double, double> *get, int iProc) {
+map<double, double> findCoeff(map<double, double> *receive, map<double, double> *get, double interval) {
     int size = receive->size();
-    vector<double> coeff (size, -1);
+    map<double, double> coeff;
+    map<double, double>::iterator recv = receive->begin();
 
-    map<double, double>::iterator it = receive->begin();
-    int start = it->first;
-    int i = 0;
-    while (it != receive->end() && it->first < get->rbegin()->first) {
+    while (recv != receive->end()) {
+        if (recv->first < get->begin()->first || recv->first > get->rbegin()->first) {
+            coeff[recv->first] = -1;
+            ++recv;
+            continue;
+        }
+
         map<double, double>::iterator upper;
-        upper = get->lower_bound(it->first);
+        upper = get->lower_bound(recv->first);
 
-        if (it->first < get->begin()->first) {
-            ++i;
-            ++it;
+        if (upper->first == recv->first) {
+            coeff[recv->first] = 0;
+            ++recv;
+            continue;
         }
-
-        else if (upper->first == it->first) {
-            coeff[i] = 0;
-            ++i;
-            ++it;
-        }
-
+        
         else if (upper != get->end()) {
             map<double, double>::iterator lower;
             lower = upper;
             --lower;
 
-            double remainder = it->first - lower->first;
+            double remainder = recv->first - lower->first;
             double interval = upper->first - lower->first;
-            coeff[i] = remainder / interval;
-            ++i;
-            ++it;
+            coeff[recv->first] = remainder / interval;
+            ++recv;
         }
     }
 
-    map<double, double> answer;
-    for (int i = 0; i < size; ++i) {
-        answer[i + start] = coeff[i];
-    }
-
     MPI_Barrier(MPI_COMM_WORLD);
-    return answer;
+    return coeff;
 }
 
