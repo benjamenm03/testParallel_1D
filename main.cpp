@@ -15,12 +15,12 @@ int main() {
     // SET THE SIZE OF grid 1
     int start1 = -5;
     int end1 = 7;
-    double interval1 = 0.25;
+    double interval1 = 0.5;
     int size1 = abs(end1 - start1);
 
     // SET THE SIZE OF grid 2
-    int start2 = -1;
-    int end2 = 7;
+    int start2 = -2;
+    int end2 = 6;
     double interval2 = 1;
     int size2 = abs(end2 - start2);
 
@@ -97,6 +97,30 @@ int main() {
     sleep(0.5);
     printGrid(&array2, &grid2, iProc);
 
+
+
+    sleep(0.75);
+    map<double, double> coeff1 = findCoeff(&array1, &array2);
+    map<double, double> coeff2 = findCoeff(&array2, &array1);
+    if (iProc == 0) {
+        cout << "\n-------------------- testing coefficient --------------------\n" << endl;
+        cout << "COEFFICIENT ONE" << endl;
+        map<double, double>::iterator it = coeff1.begin();
+        while (it != coeff1.end()) {
+            cout << "x = " << it->first << ", coeff = " << it->second << endl;
+            ++it;
+        }
+
+        cout << "\nCOEFFICIENT TWO" << endl;
+        it = coeff2.begin();
+        while (it != coeff2.end()) {
+            cout << "x = " << it->first << ", coeff = " << it->second << endl;
+            ++it;
+        }
+    }
+
+
+
     sleep(0.75);
     if (iProc == 0) {
         cout << "\n-------------------- testing message passing --------------------\n" << endl;
@@ -109,7 +133,7 @@ int main() {
 
 
     // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
-    double xPos = 1;
+    double xPos = 0;
     // CHANGE THIS VALUE TO TEST DIFFERENT X-POSITIONS
 
 
@@ -117,7 +141,7 @@ int main() {
     double test;
     int procReceive = findProc(&array1, xPos);
     int procSend = findProc(&array2, xPos);
-    getValue(&array1, &array2, &grid2, iProc, xPos, &test);
+    getValue(&array1, &array2, &grid2, &coeff1, iProc, xPos, &test);
     if (iProc == procReceive) {
         cout << "x-position = " << xPos << endl;
         cout << "receiving processor = " << procReceive << endl;
@@ -129,7 +153,7 @@ int main() {
 
 
     MPI_Barrier(MPI_COMM_WORLD);
-    getValue(&array2, &array1, &grid1, iProc, xPos, &test);
+    getValue(&array2, &array1, &grid1, &coeff2, iProc, xPos, &test);
     if (iProc == procSend) {
         cout << "\nTEST 2 getValue()" << endl;
         cout << "x-position = " << xPos << endl;
@@ -141,18 +165,22 @@ int main() {
     if (iProc == procReceive) cout << "expected = " << grid1.at(xPos) << endl;
 
 
-    
-    map<double, double> testCoeff = findCoeff(&array1, &array2, interval1);
-    if (iProc == 0) {
-        cout << "\n-------------------- testing coefficient --------------------\n" << endl;
-        map<double, double>::iterator it = testCoeff.begin();
-        while (it != testCoeff.end()) {
-            cout << "x = " << it->first << ", coeff = " << it->second << endl;
-            ++it;
-        }
+
+
+    xPos = 1.5;
+    test = 0;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    sleep(0.5);
+    procReceive = getValue(&array1, &array2, &grid2, &coeff1, iProc, xPos, &test);
+    if (iProc == procReceive) {
+        cout << "\nTEST INTERPOLATION getValue()" << endl;
+        cout << "x-position = " << xPos << endl;
+        cout << "receiving processor = " << procReceive << endl;
+        cout << "actual = " << test << endl;
     }
 
-    
+
 
     MPI_Finalize();
     return 0;

@@ -111,30 +111,6 @@ int findProc(map<double, double> *array, double xPos) {
 
 
 
-/// @brief retrieves data from another grid (MPI message passing)
-/// @param receive the map that contains information on what processor has what data for the grid that wants the data
-/// @param send the map that contains information on what processor has what data for the grid that needs to send the data
-/// @param grid the grid that needs to send the data
-/// @param iProc the rank of the processor that's executing the function
-/// @param xPos the x-position that we are interested in getting data to and from
-/// @param answer the data will be stored in this variable on the processor that wanted the data
-/// @return the rank of the processor that has received the data
-int getValue(map<double, double> *receive, map<double, double> *send, map<double, double> *grid, 
-              int iProc, double xPos, double *answer) {
-    int rcv = findProc(receive, xPos);
-    int snd = findProc(send, xPos);
-
-    if (iProc == snd) {
-        MPI_Send(&grid->at(xPos), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
-    }
-    else if (iProc == rcv) {
-        MPI_Recv(answer, 1, MPI_DOUBLE, snd, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
-
-    return rcv;
-}
-
-
 
 // The coefficient is always with respect to the point that is smaller than the point we're interested in
 // ex: x = 2, x = 3. If we want to find x = 2.4, then coeff = 40
@@ -142,34 +118,45 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
 /// @brief find the coefficient for the receive grid with respect to the get grid
 /// @param receive the ownership map for the grid we want to get coefficients for (that way we have access to all indices)
 /// @param get the ownership map that we are using to calculate the coefficients
-/// @param iProc the current processor that is running the program
+/// @param interval the interval of the receive grid (spacing between each x-value)
 /// @return returns the coefficient map
-map<double, double> findCoeff(map<double, double> *receive, map<double, double> *get, double interval) {
+map<double, double> findCoeff(map<double, double> *receive, map<double, double> *get) {
     int size = receive->size();
     map<double, double> coeff;
     map<double, double>::iterator recv = receive->begin();
 
+    // iterate through the receive array (the coefficient array is going to contain the same x-values as the receive array)
     while (recv != receive->end()) {
+
+        // if a x-value goes above or below the bounds of the get array, set the coefficient as -1
         if (recv->first < get->begin()->first || recv->first > get->rbegin()->first) {
             coeff[recv->first] = -1;
             ++recv;
             continue;
         }
 
+        // if receive and get have the same x-value, then upper will point to that value
+        // otherwise, upper will point to the next highest x-value on the get array
         map<double, double>::iterator upper;
         upper = get->lower_bound(recv->first);
 
+        // if receive and get have the same x-value, then set the coefficient as 0
         if (upper->first == recv->first) {
             coeff[recv->first] = 0;
             ++recv;
             continue;
         }
         
+        // if get does not have the same x-value as receive, then calculate the interval and insert it into the map
         else if (upper != get->end()) {
+
+            // lower points to the next x-value in get that's smaller than receive's x-value
+            // upper points to the next x-value in get that's bigger than receive's x-value
             map<double, double>::iterator lower;
             lower = upper;
             --lower;
 
+            // calculates the coefficient (with respect to the smaller x-value)
             double remainder = recv->first - lower->first;
             double interval = upper->first - lower->first;
             coeff[recv->first] = remainder / interval;
@@ -181,3 +168,97 @@ map<double, double> findCoeff(map<double, double> *receive, map<double, double> 
     return coeff;
 }
 
+
+
+// ONLY WORKS FOR INTERPOLATION, NOT EXTRAPOLATION
+
+/// @brief retrieves data from another grid (MPI message passing)
+/// @param receive the map that contains information on what processor has what data for the grid that wants the data
+/// @param send the map that contains information on what processor has what data for the grid that needs to send the data
+/// @param grid the grid that needs to send the data
+/// @param coeff the coefficients 
+/// @param iProc the rank of the processor that's executing the function
+/// @param xPos the x-position that we are interested in getting data to and from
+/// @param answer the data will be stored in this variable on the processor that wanted the data
+/// @return the rank of the processor that has received the data
+int getValue(map<double, double> *receive, map<double, double> *send, map<double, double> *grid, 
+             map<double, double> *coefficient, int iProc, double xPos, double *answer) {
+
+    double coeff = coefficient->at(xPos); // finds the coefficient at the requested x-value
+    int rcv = findProc(receive, xPos); // rcv is the processor rank that wants to receive the data
+
+    // if coefficient is zero, then we do not need to do any interpolating, simply just message pass
+    if (coeff == 0) {
+
+        int snd = findProc(send, xPos); // snd is the processor rank that needs to send the data
+
+        // if the same processor contains the data for the x-value, then set answer as the data we need and return
+        if (snd == rcv) {
+            if (rcv == iProc) *answer = grid->at(xPos);
+            return rcv;
+        }
+
+        // message passing to send the data between processors and store it in answer
+        if (iProc == snd) {
+            MPI_Send(&grid->at(xPos), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+        }
+        else if (iProc == rcv) {
+            MPI_Recv(answer, 1, MPI_DOUBLE, snd, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+
+        return rcv;
+    }
+
+    // this part is ran if we need to interpolate (and find weighted average)
+    else {
+
+        // upper points to x-value just above xPos
+        // lower points to the x-value just below xPos
+        map<double, double>::iterator upper, lower;
+        upper = send->upper_bound(xPos);
+        lower = upper;
+        --lower;
+
+        int sndLower = findProc(send, lower->first); // processor that contains the data at lower
+        int sndUpper = findProc(send, upper->first); // processor that ocntains the data at upper
+        int upperValue, lowerValue;
+
+        cout << "LOWER: " << sndLower << endl;
+        cout << "UPPER: " << sndUpper << endl;
+
+
+        // if the receive processor is the same processor that contains the data at lower, simply get that data
+        if (sndLower == rcv) {
+            if (rcv == iProc) lowerValue = grid->at(lower->first);
+        }
+
+        // message passing to obtain lowerValue on the rcv processor
+        /*else {
+            if (iProc == sndLower) {
+                MPI_Send(&grid->at(lower->first), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+            }
+            else if (iProc == rcv) {
+                MPI_Recv(&lowerValue, 1, MPI_DOUBLE, sndLower, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }*/
+
+        // repeat the same process to get upperValue
+        if (sndUpper == rcv) {
+            if (rcv == iProc) upperValue = grid->at(upper->first);
+        }
+        else {
+            if (iProc == sndUpper) {
+                MPI_Send(&grid->at(upper->first), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+            }
+            else if (iProc == rcv) {
+                MPI_Recv(&upperValue, 1, MPI_DOUBLE, sndUpper, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
+
+
+        // calculates the weighted average and stores it in answer
+        *answer = (coeff * lowerValue) + ((1 - coeff) * upperValue);
+
+        return rcv;
+    }
+}
