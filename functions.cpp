@@ -187,6 +187,7 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
     double coeff = coefficient->at(xPos); // finds the coefficient at the requested x-value
     int rcv = findProc(receive, xPos); // rcv is the processor rank that wants to receive the data
 
+
     // if coefficient is zero, then we do not need to do any interpolating, simply just message pass
     if (coeff == 0) {
 
@@ -221,10 +222,7 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
 
         int sndLower = findProc(send, lower->first); // processor that contains the data at lower
         int sndUpper = findProc(send, upper->first); // processor that ocntains the data at upper
-        int upperValue, lowerValue;
-
-        cout << "LOWER: " << sndLower << endl;
-        cout << "UPPER: " << sndUpper << endl;
+        double upperValue, lowerValue;
 
 
         // if the receive processor is the same processor that contains the data at lower, simply get that data
@@ -233,14 +231,14 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
         }
 
         // message passing to obtain lowerValue on the rcv processor
-        /*else {
+        else {
             if (iProc == sndLower) {
-                MPI_Send(&grid->at(lower->first), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+                MPI_Send(&grid->at(lower->first), 1, MPI_DOUBLE, rcv, 1, MPI_COMM_WORLD);
             }
             else if (iProc == rcv) {
-                MPI_Recv(&lowerValue, 1, MPI_DOUBLE, sndLower, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv(&lowerValue, 1, MPI_DOUBLE, sndLower, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
-        }*/
+        }
 
         // repeat the same process to get upperValue
         if (sndUpper == rcv) {
@@ -248,16 +246,19 @@ int getValue(map<double, double> *receive, map<double, double> *send, map<double
         }
         else {
             if (iProc == sndUpper) {
-                MPI_Send(&grid->at(upper->first), 1, MPI_DOUBLE, rcv, 0, MPI_COMM_WORLD);
+                MPI_Send(&grid->at(upper->first), 1, MPI_DOUBLE, rcv, 2, MPI_COMM_WORLD);
             }
             else if (iProc == rcv) {
-                MPI_Recv(&upperValue, 1, MPI_DOUBLE, sndUpper, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv(&upperValue, 1, MPI_DOUBLE, sndUpper, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
 
-
+        
         // calculates the weighted average and stores it in answer
-        *answer = (coeff * lowerValue) + ((1 - coeff) * upperValue);
+        MPI_Barrier(MPI_COMM_WORLD);
+        if (iProc == rcv) {
+            *answer = (coeff * lowerValue) + ((1 - coeff) * upperValue);
+        }
 
         return rcv;
     }

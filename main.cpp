@@ -15,7 +15,7 @@ int main() {
     // SET THE SIZE OF grid 1
     int start1 = -5;
     int end1 = 7;
-    double interval1 = 0.5;
+    double interval1 = 0.25;
     int size1 = abs(end1 - start1);
 
     // SET THE SIZE OF grid 2
@@ -167,19 +167,18 @@ int main() {
 
 
 
-    xPos = 1.5;
+    xPos = 2.25;
     test = 0;
 
     MPI_Barrier(MPI_COMM_WORLD);
-    sleep(0.5);
+    sleep(0.7);
     procReceive = getValue(&array1, &array2, &grid2, &coeff1, iProc, xPos, &test);
     if (iProc == procReceive) {
         cout << "\nTEST INTERPOLATION getValue()" << endl;
         cout << "x-position = " << xPos << endl;
         cout << "receiving processor = " << procReceive << endl;
-        cout << "actual = " << test << endl;
+        cout << "value = " << test << endl;
     }
-
 
 
     MPI_Finalize();
